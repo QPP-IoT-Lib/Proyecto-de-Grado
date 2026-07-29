@@ -1,0 +1,249 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  PLANTILLA PROYECTO DE GRADO
+%%  Universidad de los Andes
+%%  Departamento de Ingenieria de Sistemas y Computacion
+%%
+%%  Version LaTeX de "Plantilla_Proyecto_de_Grado.docx"
+%%  Compilar con:  latexmk -xelatex main.tex     (recomendado)
+%%             o:  latexmk -pdf main.tex         (pdfLaTeX)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\documentclass{plantilla-uniandes}
+
+\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{array}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+%%-----------------------------------------------------------------------------
+%% DATOS DEL TRABAJO  <-- edite unicamente estos valores
+%%-----------------------------------------------------------------------------
+\newcommand{\datoTitulo}{Título del trabajo de grado}
+\newcommand{\datoTituloLargo}{Título de la tesis o trabajo de investigación}
+\newcommand{\datoAutor}{Adrián Esteban Velásquez Solano \\ Juan Sebastián Sánchez}
+\newcommand{\datoGrado}{Ingeniero de Sistemas y Computación}
+\newcommand{\datoDirectorUno}{Ph.D. Carlos Andrés Lozano Garzón}
+\newcommand{\datoDirectorDos}{Ph.D. German Adolfo Montoya}
+\newcommand{\datoGrupo}{COMIT}
+\newcommand{\datoCiudad}{Bogotá D.C., Colombia}
+\newcommand{\datoAnio}{2026}
+
+% Titulo que aparece en el encabezado de las paginas pares
+\settituloTesis{\datoTituloLargo}
+
+\hypersetup{
+  pdftitle={\datoTituloLargo},
+  pdfauthor={\datoAutor},
+  pdflang={es}
+}
+
+\begin{document}
+
+\setlength{\parindent}{0pt}
+
+\frontmatter   % numeracion en romanos MAYUSCULAS (I, II, III...)
+
+%%=============================================================================
+%% CUBIERTA
+%% La cubierta y la portada no se numeran, pero si se cuentan como paginas.
+%%=============================================================================
+\begin{paginaPreliminar}
+  \vspace*{2\baselineskip}
+  \tituloPortada{\datoTitulo}
+
+  \vspace{6\baselineskip}
+  \textoPortada{\datoAutor}
+
+  \vspace{6\baselineskip}
+  Universidad de los Andes\\
+  Departamento de Ingeniería de Sistemas y Computación\\
+  Ingeniería de Sistemas y Computación\\
+  \datoCiudad\\
+  \datoAnio
+\end{paginaPreliminar}
+
+%%=============================================================================
+%% PORTADA
+%%=============================================================================
+\begin{paginaPreliminar}
+  \vspace*{2\baselineskip}
+  \tituloPortada{\datoTituloLargo}
+
+  \vspace{4\baselineskip}
+  \textoPortada{\datoAutor}
+
+  \vspace{3\baselineskip}
+  Tesis presentada como requisito parcial para optar al título de:\\[0.5\baselineskip]
+  \textbf{\datoGrado}
+
+  \vspace{3\baselineskip}
+  Directores:\\
+  \datoDirectorUno\\
+  \datoDirectorDos
+
+  \vspace{3\baselineskip}
+  Grupo de Investigación:\\
+  \datoGrupo
+
+  \vspace{3\baselineskip}
+  Universidad de los Andes\\
+  Departamento de Ingeniería de Sistemas y Computación\\
+  Ingeniería de Sistemas y Computación\\
+  \datoCiudad\\
+  \datoAnio
+\end{paginaPreliminar}
+
+%%=============================================================================
+%% DEDICATORIA O LEMA  (opcional)
+%%=============================================================================
+\cleardoublepage
+\thispagestyle{empty}
+{\raggedleft
+  \emph{(Dedicatoria o lema)}\par
+  \vspace{6\baselineskip}
+  \begin{minipage}{0.62\textwidth}
+    \itshape\justifying
+    Su uso es opcional y cada autor podrá determinar la distribución del texto
+    en la página, se sugiere esta presentación. En ella el autor del trabajo
+    dedica su trabajo en forma especial a personas y/o entidades.
+
+    Por ejemplo:
+
+    A mis padres
+
+    o
+
+    La preocupación por el hombre y su destino siempre debe ser el interés
+    primordial de todo esfuerzo técnico. Nunca olvides esto entre tus diagramas
+    y ecuaciones.
+
+    Albert Einstein
+  \end{minipage}\par
+}
+\clearpage
+
+%%=============================================================================
+%% AGRADECIMIENTOS  (opcional)
+%%=============================================================================
+\cleardoublepage
+\tituloPreliminarSinTDC{Agradecimientos}
+
+Esta sección es opcional, en ella el autor agradece a las personas o
+instituciones que colaboraron en la realización del trabajo. Si se incluye esta
+sección, deben aparecer los nombres completos, los cargos y su aporte al
+trabajo.
+
+A continuación, se presenta la tabla de contenido la cual se actualiza
+automáticamente. En \LaTeX{} basta con volver a compilar el documento (dos
+veces) para que la tabla de contenido, la lista de figuras, la lista de tablas
+y las referencias cruzadas queden actualizadas.
+
+Esta plantilla reproduce las secciones del documento original: cubierta,
+portada, dedicatoria, agradecimientos, resumen, contenido, listas, cuerpo,
+anexos y bibliografía. Es importante conservar dicha estructura.
+
+%%=============================================================================
+%% RESUMEN
+%%=============================================================================
+\cleardoublepage
+% "Pag." debe quedar como primera linea del archivo .toc, es decir, antes de
+% que Resumen escriba su propia entrada.
+\addtocontents{toc}{\protect\encabezadoPag}
+\tituloResumen{Resumen}
+
+El resumen es una presentación abreviada y precisa (la NTC 1486 de 2008
+recomienda revisar la norma ISO 214 de 1976). Se debe usar una extensión máxima
+de 250 palabras. Se recomienda que este resumen sea analítico, es decir, que sea
+completo, con información cuantitativa y cualitativa, generalmente incluyendo
+los siguientes aspectos: objetivos, diseño, lugar y circunstancias, pacientes
+(u objetivo del estudio), intervención, mediciones y principales resultados, y
+conclusiones. Al final del resumen se deben usar palabras claves tomadas del
+texto, las cuales permiten la recuperación de la información.
+
+\textbf{Palabras clave: (Mínimo 3 y máximo 7 palabras, preferiblemente use
+lenguaje técnico-científico).}
+
+%%=============================================================================
+%% ABSTRACT
+%%=============================================================================
+\cleardoublepage
+\tituloResumen{Abstract}
+
+Es el mismo resumen, pero traducido al inglés. Es posible incluir el resumen en
+otro idioma diferente al español o al inglés, si se considera como importante
+dentro del tema tratado en la investigación, por ejemplo: un trabajo dedicado a
+problemas lingüísticos del mandarín seguramente estaría mejor con un resumen en
+mandarín.
+
+\textbf{Keywords:}
+
+%%=============================================================================
+%% CONTENIDO
+%%=============================================================================
+\cleardoublepage
+\tableofcontents
+
+%%=============================================================================
+%% LISTA DE FIGURAS
+%%=============================================================================
+\cleardoublepage
+\phantomsection
+\markboth{\listfigurename}{\listfigurename}
+\addcontentsline{toc}{chapter}{\listfigurename}
+\addtocontents{lof}{\protect\encabezadoPag}
+\listoffigures
+
+Nota: Si es requerido, se pueden incluir lista de ilustraciones, graficas,
+diagramas, dibujos o fotografías. Tenga presente que estas listas deben ser
+generadas de forma automatizada utilizando las opciones que proporciona el
+software de procesamiento de texto.
+
+%%=============================================================================
+%% LISTA DE TABLAS
+%%=============================================================================
+\cleardoublepage
+\phantomsection
+\markboth{\listtablename}{\listtablename}
+\addcontentsline{toc}{chapter}{\listtablename}
+\addtocontents{lot}{\protect\encabezadoPag}
+\listoftables
+
+Nota: Si es requerido, se puede incluir la lista de cuadros, en caso que se
+utilicen en el desarrollo de la tesis o trabajo de investigación. Tenga presente
+que estas lista deben ser generadas de forma automatizada utilizando las
+opciones que proporciona el software de procesamiento de texto.
+
+%%=============================================================================
+%% LISTA DE SIMBOLOS Y ABREVIATURAS  (opcional)
+%%=============================================================================
+\input{preliminares/simbolos}
+
+\mainmatter   % numeracion arabiga reiniciando en 1
+
+%%=============================================================================
+%% INTRODUCCION
+%%=============================================================================
+\input{capitulos/0-introduccion}
+
+%%=============================================================================
+%% CAPITULOS
+%%=============================================================================
+\input{capitulos/1-estado_del_arte}
+\input{capitulos/2-marco_teorico}
+
+
+%%=============================================================================
+%% ANEXOS
+%%=============================================================================
+\iniciarAnexos
+\input{anexos/anexoA}
+\input{anexos/anexoB}
+
+%%=============================================================================
+%% BIBLIOGRAFIA
+%%=============================================================================
+\input{bibliografia}
+
+\end{document}
