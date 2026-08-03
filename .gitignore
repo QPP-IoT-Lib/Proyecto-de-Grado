@@ -1,0 +1,80 @@
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.fmt
+*.fot
+*.cb
+*.cb2
+.*.lb
+*.dvi
+*.ps
+*.eps
+*.pdf
+*.out
+*.log
+*.toc
+*.lof
+*.lot
+*.tui
+*.tmp
+*.maf
+*.auxlock
+*.dpth
+*.md5
+*.auxlock
+
+# BibTeX
+*.bib.bak
+
+# Synctex
+*.synctex.gz
+*.synctex(busy)
+
+# Latexmk
+latexmkrc
+
+# Knitr and R markdown
+*.Rhistory
+*.Rapp.history
+
+# TikZ
+*.figlist
+*.makefile
+*.auxlock
+
+# Temporary files
+*~
+*.bak
+*.backup
+*.swp
+*.swo
+*#*#
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+*.swp
+*~.nib
+
+# IDE
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS generated files
+Thumbs.db
+.directory
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build directories
+build/
+dist/
