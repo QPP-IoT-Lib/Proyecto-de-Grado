@@ -10,11 +10,11 @@ La tesis se ubica en la intersección entre tres áreas principales: criptograf�
 
 \section{Dispositivos IoT con recursos restringidos}
 
-Un dispositivo IoT con recursos restringidos puede definirse como un sistema computacional embebido diseñado para ejecutar una función específica, generalmente mediante sensores, actuadores o módulos de comunicación, bajo limitaciones severas de memoria, capacidad de procesamiento, almacenamiento y consumo energético \cite{Seyhan2022ClassificationTaxonomy,Dhanda2020LightweightIoT}. A diferencia de un computador de propósito general, estos dispositivos no están diseñados para ejecutar múltiples aplicaciones arbitrarias, sino para cumplir tareas concretas dentro de una arquitectura distribuida.
+Un dispositivo IoT con recursos restringidos puede definirse como un sistema computacional embebido diseñado para ejecutar una función específica, generalmente mediante sensores, actuadores o módulos de comunicación, bajo limitaciones severas de memoria, capacidad de procesamiento, almacenamiento y consumo energético \cite{Seyhan2022ClassificationTaxonomy,Dhanda2020LightweightIoT}. A diferencia de un computador convencional, estos dispositivos no están diseñados para ejecutar múltiples aplicaciones arbitrarias, sino para cumplir tareas concretas dentro de una arquitectura distribuida.
 
-Las restricciones más relevantes para esta investigación se relacionan con las limitaciones propias de los dispositivos IoT. En primer lugar, la memoria RAM disponible suele ser de apenas unos pocos kilobytes, lo que restringe el tamaño de los buffers, los estados criptográficos y las estructuras auxiliares que pueden emplearse. Asimismo, la memoria Flash es limitada, por lo que el firmware debe mantenerse lo más compacto posible y las bibliotecas criptográficas no pueden depender de implementaciones excesivamente pesadas. A ello se suma la reducida capacidad de procesamiento de estos dispositivos, ya que la baja frecuencia del procesador y la ausencia de unidades especializadas pueden incrementar el tiempo necesario para ejecutar operaciones criptográficas. También existen importantes restricciones energéticas, debido a que muchos dispositivos funcionan con baterías y deben operar durante largos periodos sin requerir mantenimiento. Finalmente, la conectividad suele estar limitada por los protocolos de comunicación utilizados, los cuales pueden imponer restricciones en el ancho de banda, el tamaño de los paquetes, la latencia y el consumo energético asociado a cada transmisión.
+Las restricciones más relevantes para esta investigación se relacionan con las limitaciones propias de los dispositivos IoT. En primer lugar, la memoria RAM disponible suele ser de apenas unos pocos kilobytes, lo que restringe el tamaño de los buffers, los estados criptográficos y las estructuras auxiliares que pueden emplearse. Asimismo, la memoria Flash es limitada, por lo que el firmware debe mantenerse lo más compacto posible y las bibliotecas criptográficas no pueden depender de implementaciones excesivamente pesadas. A ello se suma la reducida capacidad de procesamiento de estos dispositivos, ya que la baja frecuencia del procesador y la ausencia de unidades especializadas pueden incrementar el tiempo necesario para ejecutar operaciones criptográficas. También existen importantes restricciones energéticas, debido a que muchos dispositivos funcionan con baterías y deben operar durante largos periodos de tiempo sin requerir mantenimiento. Finalmente, la conectividad suele estar limitada por los protocolos de comunicación utilizados, los cuales pueden imponer restricciones en el ancho de banda, el tamaño de los paquetes, la latencia y el consumo energético asociado a cada transmisión.
 
-Estas restricciones condicionan directamente el diseño criptográfico. Un algoritmo seguro en teoría puede resultar impracticable si requiere demasiada memoria, si incrementa significativamente el tiempo de respuesta o si reduce la vida útil de la batería. Por esta razón, la seguridad en IoT debe evaluarse como un equilibrio entre robustez criptográfica y viabilidad computacional.
+Estas restricciones condicionan directamente el diseño criptográfico. Un algoritmo seguro en teoría puede resultar poco práctico si requiere demasiada memoria, si incrementa significativamente el tiempo de respuesta o si reduce la vida útil de la batería. Por esta razón, la seguridad en IoT debe evaluarse como un equilibrio entre robustez criptográfica y viabilidad computacional.
 
 \begin{table}[H]
 \centering
@@ -65,7 +65,7 @@ No obstante, la corrección no implica seguridad. Un esquema puede descifrar cor
 
 \subsection{Integridad}
 
-La integridad garantiza que la información no ha sido modificada de manera no autorizada \cite{Stallings2023CryptographyPractice}. En sistemas IoT, esta propiedad es crítica porque un atacante no necesariamente necesita leer los mensajes para causar daño; en muchos casos basta con alterar mediciones, comandos o parámetros de control.
+La integridad garantiza que la información no haya sido modificada de manera no autorizada \cite{Stallings2023CryptographyPractice}. En sistemas IoT, esta propiedad es crítica porque un atacante no necesariamente necesita leer los mensajes para causar daño. En muchos casos basta con alterar mediciones, comandos o parámetros de control.
 
 Por ejemplo, en un sistema de monitoreo industrial, modificar una lectura de temperatura o presión puede inducir decisiones incorrectas. En un sistema médico, alterar datos fisiológicos puede afectar la seguridad del paciente. Por tanto, la integridad es tan importante como la confidencialidad.
 
@@ -122,7 +122,7 @@ Para un byte uniforme, $N=256$, por lo que:
     H(X) = \log_2 256 = 8
 \end{equation}
 
-La entropía de Shannon es útil para analizar la incertidumbre promedio, pero en criptografía no siempre es suficiente, porque un adversario puede explotar el valor más probable de una distribución.
+La entropía de Shannon es útil para analizar la incertidumbre promedio, pero en criptografía no siempre es suficiente porque un adversario puede explotar el valor más probable de una distribución.
 
 \subsection{Min-Entropía}
 
@@ -186,7 +186,7 @@ La seguridad de un CSPRNG depende críticamente de la calidad de la semilla inic
 
 \subsection{Acondicionamiento de entropía}
 
-Las fuentes físicas o software pueden producir datos con sesgo o correlación. El acondicionamiento de entropía busca transformar estas muestras crudas en una salida con mejores propiedades estadísticas. Este proceso puede implementarse mediante funciones hash criptográficas, construcciones tipo extractor, mezclas no lineales o mecanismos basados en cifrado.
+Las fuentes físicas o de software pueden producir datos con sesgo o correlación. El acondicionamiento de entropía busca transformar estas muestras crudas en una salida con mejores propiedades estadísticas. Este proceso puede implementarse mediante funciones hash criptográficas, construcciones tipo extractor, mezclas no lineales o mecanismos basados en cifrado.
 
 De manera general, puede representarse como:
 
@@ -194,7 +194,7 @@ De manera general, puede representarse como:
     Y = \text{Cond}(X_1, X_2, \ldots, X_n)
 \end{equation}
 
-donde $X_i$ son muestras crudas de la fuente y $Y$ es la salida acondicionada. El acondicionamiento no crea entropía de la nada; su función es concentrar y distribuir la entropía existente en la entrada.
+donde $X_i$ son muestras crudas de la fuente y $Y$ es la salida acondicionada. El acondicionamiento no crea entropía de la nada, su función es concentrar y distribuir la entropía existente en la entrada.
 
 \begin{table}[H]
 \centering
@@ -219,7 +219,7 @@ La evaluación de un generador de números aleatorios requiere analizar si las s
 
 \subsection{NIST SP 800-22}
 
-NIST SP 800-22 es una suite de pruebas estadísticas para secuencias binarias \cite{Rukhin2010AApplications}. Su objetivo es detectar desviaciones respecto al comportamiento esperado de una fuente aleatoria ideal. Entre las pruebas más conocidas se encuentran la prueba de frecuencia monobit, la prueba de frecuencia por bloques, la prueba de rachas, la prueba de racha más larga de unos, la prueba de transformada rápida de Fourier, la prueba serial, la prueba de entropía aproximada, y la prueba de complejidad lineal.
+NIST SP 800-22 es una suite de pruebas estadísticas para secuencias binarias \cite{Rukhin2010AApplications}. Su objetivo es detectar desviaciones respecto al comportamiento esperado de una fuente aleatoria ideal. Entre las pruebas más conocidas se encuentran la prueba de frecuencia monobit, la prueba de frecuencia por bloques, la prueba de rachas, la prueba de racha más larga de unos, la prueba de transformada rápida de Fourier, la prueba serial, la prueba de entropía aproximada y la prueba de complejidad lineal.
 
 Cada prueba produce normalmente un $p$-valor, que representa la probabilidad de observar una desviación igual o mayor bajo la hipótesis de aleatoriedad. Si el $p$-valor es menor que un umbral de significancia $\alpha$, la secuencia puede rechazarse para esa prueba.
 
@@ -291,15 +291,15 @@ El estado total puede expresarse como:
     b = r + c
 \end{equation}
 
-El funcionamiento general se divide en dos fases. La primera es la fase de absorción, donde la entrada se divide en bloques y se incorpora al estado mediante operaciones XOR y permutaciones internas. La segunda es la fase de extracción, donde la salida se obtiene a partir de la parde de tasa del estado, aplicando permutaciones adicionales si se requiere más salida.
+El funcionamiento general se divide en dos fases. La primera es la fase de absorción, donde la entrada se divide en bloques y se incorpora al estado mediante operaciones XOR y permutaciones internas. La segunda es la fase de extracción, donde la salida se obtiene a partir de la parte de la tasa del estado, aplicando permutaciones adicionales si se requiere más salida.
 
-La seguridad de este tipo de construcción depende de la permutación interna, del tamaño de la capacidad y de la correcta separación de dominios entre modos de uso.
+La seguridad de este tipo de construcciones depende de la permutación interna, del tamaño de la capacidad y de la correcta separación de dominios entre modos de uso.
 
 \subsection{AEAD en ASCON}
 
-En el modo de cifrado autenticado, ASCON procesa la clave, el \textit{nonce}, los datos asociados y el mensaje mediante una secuencia de inicialización, absorción, cifrado y finalización. Conceptualmente, el proceso es el siguiente: primero se debe inicializar el estado con una clave, \textit{nonce} y constantes. Segundo se debe aplicar la permutación interna, para posteriormente absorber los datos asociados. Luego se cifra el mensaje y se finaliza el estado incorporando nuevamente la clave. Por último, se extrae la etiqueta de autenticación.
+En el modo de cifrado autenticado, ASCON procesa la clave, el \textit{nonce}, los datos asociados y el mensaje mediante una secuencia de inicialización, absorción, cifrado y finalización. Conceptualmente, el proceso es el siguiente: primero se debe inicializar el estado con una clave, \textit{nonce} y constantes. En segundo lugar, se debe aplicar la permutación interna, para posteriormente absorber los datos asociados. Luego se cifra el mensaje y se finaliza el estado incorporando nuevamente la clave. Por último, se extrae la etiqueta de autenticación.
 
-Esta estructura permite obtener confidencialidad e integridad dentro de una única construcción. Para dispositivos IoT, esta propiedad reduce la complejidad del diseño, pues evita combinar manualmente un cifrador con un código de autenticación.
+Esta estructura permite obtener confidencialidad e integridad dentro de una única construcción. Para dispositivos IoT, esta propiedad reduce la complejidad del diseño ya que evita combinar manualmente un cifrador con un código de autenticación.
 
 \subsection{Relación entre ASCON y fuentes de entropía}
 
@@ -402,9 +402,9 @@ QPP-RNG es un generador de números aleatorios basado en software que busca apro
 
 \subsection{\textit{Jitter} como fuente de entropía}
 
-El \textit{jitter} se refiere a pequeñas variaciones temporales en la ejecución de instrucciones, interrupciones, accesos a memoria o eventos del sistema \cite{Kuang2025IID-BasedJitter}. Aunque un programa pueda parecer determinístico, su ejecución real en hardware moderno puede variar debido a múltiples factores (el estado de la memoria, las interrupciones del sistema, la planificación de procesos, la predicción de slatos, las variaciones de frecuencia, la contención por recursos internos, el ruido eléctrico o térmico, etc.)
+El \textit{jitter} se refiere a pequeñas variaciones temporales en la ejecución de instrucciones, interrupciones, accesos a memoria o eventos del sistema \cite{Kuang2025IID-BasedJitter}. Aunque un programa pueda parecer determinístico, su ejecución real en hardware moderno puede variar debido a múltiples factores (el estado de la memoria, las interrupciones del sistema, la planificación de procesos, la predicción de saltos, las variaciones de frecuencia, la contención por recursos internos, el ruido eléctrico o térmico, etc.)
 
-Estas variaciones pueden medirse mediante temporizadores de alta resolución y utilizarse como muestras crudas de entropía. Sin embargo, el jitter no debe asumirse automáticamente seguro. Es necesario medir, acondicionar y evaluar estadísticamente la salida \cite{Vrana2025RawEvaluation}.
+Estas variaciones pueden medirse mediante temporizadores de alta resolución y utilizarse como muestras crudas de entropía. Sin embargo, el jitter no debe asumirse automáticamente como seguro. Es necesario medir, acondicionar y evaluar estadísticamente la salida \cite{Vrana2025RawEvaluation}.
 
 \subsection{Modelo conceptual de QPP-RNG}
 
