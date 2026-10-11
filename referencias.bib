@@ -115,18 +115,19 @@
 @article{Klimushyn2022Crypto-ResistantDevices,
     title = {{Crypto-Resistant Methods and Random Number Generators in Internet of Things Devices}},
     year = {2022},
-    journal = {Information Technology and Security Science Issues},
+    journal = {Innovative Technologies and Scientific Solutions for Industries},
     author = {Klimushyn, Serhii and Solianyk, Tetiana and Mozhaiev, Oleksandr and Gnusov, Yurii and Manzhai, Oleksandr and Svitlychny, Vladyslav},
+    volume = {2},
     number = {20},
-    pages = {68--80},
-    volume = {2}
+    pages = {22--34},
+    doi = {10.30837/itssi.2022.20.022}
 }
 
 @book{Stallings2023CryptographyPractice,
     title = {{Cryptography and Network Security: Principles and Practice}},
     year = {2023},
     author = {Stallings, William},
-    edition = {9},
+    edition = {8},
     publisher = {Pearson}
 }
 
@@ -218,13 +219,6 @@
     doi = {10.1007/s11277-020-07134-3}
 }
 
-@misc{EncryptionConsulting2023Post-QuantumChallenges,
-    title = {{Post-Quantum Cryptography and Its Implementation Challenges}},
-    year = {2023},
-    author = {{Encryption Consulting}},
-    howpublished = {Online article}
-}
-
 @inproceedings{Bogdanov2007PRESENT:Cipher,
     title = {{PRESENT: An Ultra-Lightweight Block Cipher}},
     year = {2007},
@@ -260,7 +254,7 @@
     journal = {Physical Review E},
     author = {Kuang, Randy},
     number = {5},
-    pages = {55309},
+    pages = {055309},
     volume = {112},
     url = {https://doi.org/10.1103/d937-5yt7},
     doi = {10.1103/d937-5yt7}
@@ -386,15 +380,6 @@
     doi = {10.1109/QCE49297.2020.00039}
 }
 
-@inproceedings{Ivezic2017ShorsCryptography,
-    title = {{Shor's Algorithm and the Impact of Quantum Computing on Cryptography}},
-    year = {2017},
-    booktitle = {2017 40th International Convention on Information and Communication Technology, Electronics and Microelectronics (MIPRO)},
-    author = {Ivezi{\'{c}}, Nikola},
-    pages = {1185--1190},
-    publisher = {IEEE}
-}
-
 @inproceedings{Bertoni2007SpongeFunctions,
     title = {{Sponge Functions}},
     year = {2007},
@@ -429,11 +414,93 @@
     isbn = {9781718503106}
 }
 
-@article{Beaulieu2015TheCiphers,
+@inproceedings{Beaulieu2015TheCiphers,
     title = {{The SIMON and SPECK Lightweight Block Ciphers}},
     year = {2015},
-    journal = {Proceedings of the 52nd Annual Design Automation Conference},
+    booktitle = {Proceedings of the 52nd Annual Design Automation Conference},
     author = {Beaulieu, Ray and Treatman-Clark, Stefan and Shors, Douglas and Weeks, Bryan and Smith, Jason and Wingers, Louis},
     pages = {1--6},
     doi = {10.1145/2744769.2747946}
+}
+@article{Durstenfeld1964Algorithm235,
+    title = {{Algorithm 235: Random Permutation}},
+    year = {1964},
+    journal = {Communications of the ACM},
+    author = {Durstenfeld, Richard},
+    number = {7},
+    pages = {420},
+    volume = {7},
+    doi = {10.1145/364520.364540}
+}
+
+@article{Vigna2017FurtherGenerators,
+    title = {{Further Scramblings of Marsaglia's xorshift Generators}},
+    year = {2017},
+    journal = {Journal of Computational and Applied Mathematics},
+    author = {Vigna, Sebastiano},
+    pages = {175--181},
+    volume = {315},
+    doi = {10.1016/j.cam.2016.11.006}
+}
+
+@article{Lemire2019FastInterval,
+    title = {{Fast Random Integer Generation in an Interval}},
+    year = {2019},
+    journal = {ACM Transactions on Modeling and Computer Simulation},
+    author = {Lemire, Daniel},
+    number = {1},
+    pages = {1--12},
+    volume = {29},
+    doi = {10.1145/3230636}
+}
+
+@article{Marsaglia2003XorshiftRNGs,
+    title = {{Xorshift RNGs}},
+    year = {2003},
+    journal = {Journal of Statistical Software},
+    author = {Marsaglia, George},
+    number = {14},
+    pages = {1--6},
+    volume = {8},
+    doi = {10.18637/jss.v008.i14}
+}
+
+@techreport{NIST2015SecureHashStandard,
+    title = {{Secure Hash Standard (SHS)}},
+    year = {2015},
+    author = {{National Institute of Standards and Technology}},
+    number = {180-4},
+    type = {FIPS},
+    url = {https://doi.org/10.6028/NIST.FIPS.180-4},
+    institution = {National Institute of Standards and Technology},
+    address = {Gaithersburg, MD},
+    doi = {10.6028/NIST.FIPS.180-4}
+}
+
+@misc{RustCryptoAEADs,
+    title = {{RustCrypto: Authenticated Encryption with Associated Data Algorithms}},
+    author = {{RustCrypto Developers}},
+    url = {https://github.com/RustCrypto/AEADs},
+    howpublished = {Repositorio de software}
+}
+
+@misc{AsconC,
+    title = {{ascon-c: Ascon Reference and Optimized C Implementations}},
+    author = {{The Ascon Team}},
+    url = {https://github.com/ascon/ascon-c},
+    howpublished = {Repositorio de software}
+}
+
+@misc{NISTACVPServer,
+    title = {{ACVP-Server: Automated Cryptographic Validation Protocol Server}},
+    author = {{National Institute of Standards and Technology}},
+    url = {https://github.com/usnistgov/ACVP-Server},
+    howpublished = {Repositorio de software}
+}
+
+@misc{NISTEntropyAssessment,
+    title = {{SP800-90B\_EntropyAssessment}},
+    author = {{National Institute of Standards and Technology}},
+    url = {https://github.com/usnistgov/SP800-90B_EntropyAssessment},
+    howpublished = {Repositorio de software}
 }

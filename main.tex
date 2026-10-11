@@ -16,12 +16,44 @@
 \usepackage{array}
 
 \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+% Diagramas
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit}
+
+% Listados de codigo
+\usepackage{listings}
+\usepackage{xcolor}
+\lstdefinelanguage{Rust}{
+  morekeywords={as,break,const,continue,crate,else,enum,fn,for,if,impl,in,let,loop,match,mod,mut,pub,ref,return,self,Self,static,struct,trait,type,use,where,while,u8,u16,u32,u64,u128,usize,bool},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+}
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\bfseries,
+  commentstyle=\itshape\color{black!60},
+  frame=single,
+  columns=fullflexible,
+  keepspaces=true,
+  breaklines=true,
+  aboveskip=1ex,
+  belowskip=1ex,
+}
+\renewcommand{\lstlistingname}{Listado}
+
+% Margen extra para que las palabras largas en monoespaciado no se salgan de la caja
+\setlength{\emergencystretch}{1.5em}
 
 %%-----------------------------------------------------------------------------
 %% DATOS DEL TRABAJO  <-- edite unicamente estos valores
 %%-----------------------------------------------------------------------------
 \newcommand{\datoTitulo}{\textbf{\textbf{Evaluación de QPP-RNG como fuente de entropía para criptografía ligera en dispositivos IoT críticos} }}
-\newcommand{\datoTituloLargo}{Título de la tesis o trabajo de investigación}
+\newcommand{\datoTituloLargo}{Evaluación de QPP-RNG como fuente de entropía para criptografía ligera en dispositivos IoT críticos}
 \newcommand{\datoAutor}{Adrián Esteban Velásquez Solano \\ Juan Sebastián Sánchez}
 \newcommand{\datoGrado}{Ingeniero de Sistemas y Computación}
 \newcommand{\datoDirectorUno}{Ph.D. Carlos Andrés Lozano Garzón}
@@ -152,17 +184,9 @@ anexos y bibliografía. Es importante conservar dicha estructura.
 \addtocontents{toc}{\protect\encabezadoPag}
 \tituloResumen{Resumen}
 
-El resumen es una presentación abreviada y precisa (la NTC 1486 de 2008
-recomienda revisar la norma ISO 214 de 1976). Se debe usar una extensión máxima
-de 250 palabras. Se recomienda que este resumen sea analítico, es decir, que sea
-completo, con información cuantitativa y cualitativa, generalmente incluyendo
-los siguientes aspectos: objetivos, diseño, lugar y circunstancias, pacientes
-(u objetivo del estudio), intervención, mediciones y principales resultados, y
-conclusiones. Al final del resumen se deben usar palabras claves tomadas del
-texto, las cuales permiten la recuperación de la información.
+Los dispositivos IoT críticos necesitan claves impredecibles, pero muchos microcontroladores carecen de un generador físico de números aleatorios. QPP-RNG, una propuesta reciente que obtiene entropía del \textit{jitter} de ejecución de una caminata de permutaciones, ha sido evaluado favorablemente con las pruebas del NIST en computadores de propósito general. Este trabajo diseñó, implementó en Rust y evaluó una librería que integra QPP-RNG con Ascon-AEAD128 (NIST SP 800-232), con pruebas sobre un Arduino Mega 2560, un Arduino Nano y un nRF52840. En los tres microcontroladores, la salida de la referencia fue idéntica bit a bit tras cada reinicio y, aun así, superó las pruebas estadísticas. En una Raspberry Pi 4 y un computador con Windows, cada ciclo aportó solo entre 0.375 y 0.407 bits de min-entropía según NIST SP 800-90B, unos 2 bits por byte frente a los 8 contabilizados, un déficit que ninguna prueba de la salida detectó. La variante propuesta toma su entropía de un oscilador físicamente independiente (el perro guardián en AVR, con al menos 1.62 bits por muestra, y el RNG del nRF52840), aplica pruebas de salud continuas y contabiliza la entropía de forma explícita. Su salida difiere tras cada reinicio, supera las pruebas evaluadas y alcanza 7.4 B/s en AVR y 101 B/s en el nRF52840, y la pila completa cabe en 16 KB de Flash. Se concluye que QPP-RNG en su forma original no es viable en microcontroladores sin sistema operativo, y que toda afirmación de entropía debe basarse en evaluar la fuente, no la salida.
 
-\textbf{Palabras clave: (Mínimo 3 y máximo 7 palabras, preferiblemente use
-lenguaje técnico-científico).}
+\textbf{Palabras clave:} generación de números aleatorios, min-entropía, QPP-RNG, criptografía ligera, Ascon, Internet de las cosas, Rust.
 
 %%=============================================================================
 %% ABSTRACT
@@ -170,13 +194,9 @@ lenguaje técnico-científico).}
 \cleardoublepage
 \tituloResumen{Abstract}
 
-Es el mismo resumen, pero traducido al inglés. Es posible incluir el resumen en
-otro idioma diferente al español o al inglés, si se considera como importante
-dentro del tema tratado en la investigación, por ejemplo: un trabajo dedicado a
-problemas lingüísticos del mandarín seguramente estaría mejor con un resumen en
-mandarín.
+Critical IoT devices need unpredictable keys and nonces, yet many microcontrollers have no physical random number generator. QPP-RNG, a recent proposal that draws entropy from the execution jitter of a permutation walk, has been assessed favourably with NIST tests on general-purpose platforms. This work designed, implemented in Rust and evaluated a library that integrates QPP-RNG with Ascon-AEAD128 (NIST SP 800-232): a faithful implementation of the generator, a microcontroller variant, a SHA-256 conditioner, an evaluation harness and test firmware for an Arduino Mega 2560, an Arduino Nano and an nRF52840. On all three microcontrollers, the reference generator's output was bit-for-bit identical after every reset, and it still passed the statistical tests. On a Raspberry Pi 4 and a Windows desktop, each cycle contributed only 0.375 to 0.407 bits of min-entropy according to NIST SP 800-90B, about 2 bits per byte against the 8 accounted for, a shortfall that no output-level test detected. The proposed variant draws its entropy from a physically independent oscillator (the AVR watchdog, at 1.62 to 2.24 bits per sample, and the nRF52840 hardware RNG, at 7.24 bits per byte), applies continuous health tests and accounts for entropy explicitly. Its output differs after every reset, passes the tests applied and reaches 7.4 B/s on AVR and 101 B/s on the nRF52840; the full stack takes 16 KB of flash on AVR. The original QPP-RNG is therefore not viable on bare-metal microcontrollers, and any entropy claim must rest on an assessment of the source, not of the output.
 
-\textbf{Keywords:}
+\textbf{Keywords:} random number generation, min-entropy, QPP-RNG, lightweight cryptography, Ascon, Internet of Things, Rust.
 
 %%=============================================================================
 %% CONTENIDO
@@ -194,11 +214,6 @@ mandarín.
 \addtocontents{lof}{\protect\encabezadoPag}
 \listoffigures
 
-Nota: Si es requerido, se pueden incluir lista de ilustraciones, graficas,
-diagramas, dibujos o fotografías. Tenga presente que estas listas deben ser
-generadas de forma automatizada utilizando las opciones que proporciona el
-software de procesamiento de texto.
-
 %%=============================================================================
 %% LISTA DE TABLAS
 %%=============================================================================
@@ -208,11 +223,6 @@ software de procesamiento de texto.
 \addcontentsline{toc}{chapter}{\listtablename}
 \addtocontents{lot}{\protect\encabezadoPag}
 \listoftables
-
-Nota: Si es requerido, se puede incluir la lista de cuadros, en caso que se
-utilicen en el desarrollo de la tesis o trabajo de investigación. Tenga presente
-que estas lista deben ser generadas de forma automatizada utilizando las
-opciones que proporciona el software de procesamiento de texto.
 
 %%=============================================================================
 %% LISTA DE SIMBOLOS Y ABREVIATURAS  (opcional)
@@ -232,6 +242,10 @@ opciones que proporciona el software de procesamiento de texto.
 \input{capitulos/1-estado_del_arte}
 \input{capitulos/2-marco_teorico}
 \input{capitulos/3-metodología}
+\input{capitulos/4-diseno_implementacion}
+\input{capitulos/5-resultados}
+\input{capitulos/6-discusion}
+\input{capitulos/7-conclusiones}
 
 
 %%=============================================================================

@@ -1,0 +1,56 @@
+%%=============================================================================
+%% CONCLUSIONES Y RECOMENDACIONES
+%%=============================================================================
+\chapter{Conclusiones y recomendaciones}
+\label{cap:conclusiones}
+
+\section{Conclusiones}
+
+Esta tesis evaluó QPP-RNG como fuente de entropía para criptografía ligera en dispositivos IoT críticos, mediante el diseño, la implementación en Rust y la evaluación experimental de una librería que integra el generador con Ascon-AEAD128. Las conclusiones principales son las siguientes.
+
+\begin{enumerate}
+    \item \textbf{La implementación de referencia reproduce el comportamiento estadístico publicado.} Su salida cruda obtiene entre 7.2 y 7.4 bits por byte según NIST SP 800-90B y, acondicionada con SHA-256, supera NIST SP 800-22, ENT y las pruebas IID de SP 800-90B a la tasa esperada por azar. Su salida cruda presenta, además, un sesgo estructural en el bit más significativo, consecuencia de extraer $n_p \bmod 256$ cuando $n_p$ es geométrico con media $5! = 120$. Ese sesgo se predice con exactitud ($0.48654$ frente a $0.48621$ medido) y obliga a acondicionar la salida antes de usarla.
+
+    \item \textbf{En microcontroladores, el \textit{jitter} de ejecución de QPP-RNG no aporta entropía.} En un Arduino Mega 2560, un Arduino Nano y un nRF52840, la salida de la referencia es idéntica bit a bit tras cada reinicio, y aun así supera las pruebas estadísticas. En procesadores sin caché, sistema operativo ni otros maestros de bus, el tiempo de la caminata es una función determinística de la semilla.
+
+    \item \textbf{En anfitriones rápidos, la entropía existe, pero es menor que la contabilizada.} En una Raspberry Pi 4 y en un computador con Windows, la referencia no es determinística, pero cada ciclo aporta entre 0.375 y 0.407 bits de min-entropía fresca según NIST, unos 2 bits por byte de salida frente a los 8 que contabiliza el diseño. Ninguna prueba aplicada a la salida detecta este déficit.
+
+    \item \textbf{Una fuente física independiente resuelve el problema en microcontroladores.} El perro guardián de los ATmega, medido con el Timer1, aporta 1.62 y 2.24 bits por muestra en los dos ejemplares evaluados, y el RNG del nRF52840 aporta 7.24 bits por byte, ambos estimados con un millón de muestras. La variante \texttt{qpp-rng-iot}, que toma su entropía de esas fuentes, aplica las pruebas de salud continuas de SP 800-90B y contabiliza explícitamente la entropía, produce salidas distintas tras cada reinicio y supera todas las pruebas evaluadas: en las tres placas, la batería completa sobre 1\,000\,000 de bytes, con entre 7.26 y 7.36 bits por byte en \texttt{ea\_non\_iid}, todas las pruebas IID de \texttt{ea\_iid} superadas y entre el 99.17\,\% y el 99.51\,\% de las combinaciones de SP 800-22 superadas, por encima de lo esperado por azar.
+
+    \item \textbf{La variante IoT es viable en un microcontrolador de 8 bits.} El cómputo por byte en el ATmega2560 se redujo $6.6\times$, de modo que el generador quedó limitado por la fuente: 7.4 B/s de salida cruda con al menos 8 bits acreditados por byte, en 6.3 a 6.5 KB de \textit{firmware}. La pila completa (fuente, QPP-RNG, SHA-256 y Ascon-AEAD128) ocupa entre 15.7 y 21.0 KB de Flash con los \textit{backends} compactos y funciona de extremo a extremo en las tres placas: cada reinicio produjo una clave distinta, y todos los textos cifrados y etiquetas coincidieron con la implementación de referencia. En el ATmega328P, la pila usa como máximo 1\,691 de los 2\,048 bytes de RAM, y la primera clave está lista 8.7~s después del arranque.
+
+    \item \textbf{La implementación base de Ascon-AEAD128 es correcta y está desacoplada del generador.} Supera los 1\,089 vectores KAT, una validación local de ACVP de 120 casos y 6\,840 verificaciones diferenciales y negativas contra la implementación de referencia en C, sin discrepancias.
+\end{enumerate}
+
+En respuesta a la hipótesis de la investigación, QPP-RNG \emph{en su forma original} no es una fuente de entropía viable para dispositivos IoT con microcontroladores sin sistema operativo, y en anfitriones de propósito general su contabilidad de entropía es optimista por un factor cercano a cuatro. Una adaptación que conserva la estructura de QPP, pero toma su entropía de un oscilador físicamente independiente y la contabiliza de forma explícita, sí es viable, con la condición de que el valor acreditado provenga de una evaluación de la fuente en el dispositivo concreto. En esa adaptación, la caminata de QPP actúa como etapa de mezcla y no como fuente de entropía.
+
+\section{Recomendaciones y trabajo futuro}
+
+\paragraph{Para completar la validación.}
+\begin{itemize}
+    \item En AVR, ubicar las constantes en la memoria Flash en lugar de copiarlas a la RAM, empezando por la tabla de SHA-256, para ampliar el margen de unos 350 bytes que hoy le queda a una aplicación en el ATmega328P.
+    \item Medir el consumo energético por byte generado y por operación de cifrado, una métrica que el Marco teórico contempla y que este trabajo no llegó a medir.
+    \item Evaluar más ejemplares de cada placa y distintas condiciones de temperatura y tensión, para estimar la variación del valor acreditado entre dispositivos.
+\end{itemize}
+
+\paragraph{Para completar el diseño.}
+\begin{itemize}
+    \item Hacer que el acondicionador acepte una fuente falible, de modo que \texttt{QppEntropy} retorne un error ante una falla de salud en lugar de entrar en pánico.
+    \item Definir una estrategia de \textit{nonces} con unicidad garantizada entre reinicios, por ejemplo un contador persistente, y una política de resiembra tras una falla de salud o un tiempo prolongado de operación.
+    \item Usar la tubería para sembrar un DRBG al arranque, en lugar de producir directamente cada clave y \textit{nonce}.
+    \item Ofrecer constantes de valor acreditado por placa, para que quien integra la librería no tenga que introducir valores sin justificación.
+    \item Implementar \texttt{rand\_core::CryptoRng} solamente cuando todas las validaciones anteriores se hayan completado.
+\end{itemize}
+
+\paragraph{Para la referencia en anfitriones.}
+\begin{itemize}
+    \item Aumentar el sobremuestreo a unos 22 ciclos por byte, o aplicar la contabilidad explícita de la variante IoT al temporizador del anfitrión.
+    \item Estudiar si el hecho de que el reloj de la CPU y el temporizador genérico de la Raspberry Pi provengan del mismo cristal hace parcialmente predecible la fase del flanco, lo que reduciría aún más las cifras de E4.
+\end{itemize}
+
+\paragraph{Para la metodología.}
+\begin{itemize}
+    \item Incorporar al arnés la comparación entre reinicios y la estimación de la entropía de la fuente condicionada al estado, como pruebas de primer nivel.
+    \item Endurecer la integración con STS: resolver la ruta real del ejecutable antes de buscar sus plantillas, y reportar como no válido cualquier informe en el que una prueba haya abortado.
+    \item Extender la evaluación a otras arquitecturas comunes en IoT, como ESP32 y RISC-V, para las cuales la librería ya incluye temporizadores.
+\end{itemize}

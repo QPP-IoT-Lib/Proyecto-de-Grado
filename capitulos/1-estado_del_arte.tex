@@ -8,14 +8,14 @@ La seguridad de los sistemas embebidos y del Internet de las Cosas constituye ac
 
 Durante los últimos años, la comunidad científica ha concentrado sus esfuerzos en tres líneas principales de investigación. La primera corresponde al diseño de algoritmos de criptografía ligera que permitan proteger la información utilizando una cantidad reducida de recursos computacionales. La segunda se enfoca en el desarrollo de mecanismos resistentes frente a la futura amenaza de la computación cuántica. Finalmente, una tercera línea de investigación, menos explorada pero igualmente crítica, estudia la generación de números aleatorios de alta calidad como fundamento de cualquier sistema criptográfico seguro.
 
-El presente capítulo revisa el estado del conocimiento en estas tres áreas, iniciando con una descripción de la evolución del Internet de las Cosas y sus restricciones computacionales, continuando con los principales desafíos de seguridad presentes en estos entornos. Posteriormente,  analizando la evolución de la criptografía ligera y los mecanismos modernos de generación de entropía, para finalmente estudiar los fundamentos del \textit{Quantum Permutation Pad} (QPP) y \textit{Quantum Permutation Pad Random Number Generator} (QPP-RNG), identificando las brechas existentes en la literatura que motivan la presente investigación.
+El presente capítulo revisa el estado del conocimiento en estas tres áreas, iniciando con una descripción de la evolución del Internet de las Cosas y sus restricciones computacionales, continuando con los principales desafíos de seguridad presentes en estos entornos. Posteriormente, se analiza la evolución de la criptografía ligera y de los mecanismos modernos de generación de entropía, para finalmente estudiar los fundamentos del \textit{Quantum Permutation Pad} (QPP) y \textit{Quantum Permutation Pad Random Number Generator} (QPP-RNG), identificando las brechas existentes en la literatura que motivan la presente investigación.
 
 
 %%=========== 
 %% SECCION 1
 %%=========== 
 
-\section{Internet de las cosas: evolución, aquitectura y restricciones}
+\section{Internet de las cosas: evolución, arquitectura y restricciones}
 
 El concepto de Internet de las Cosas (\textit{Internet of Things}, IoT) hace referencia a la interconexión de objetos físicos capaces de percibir información del entorno mediante sensores, procesarla localmente y transmitirla a través de diferentes tecnologías de comunicación hacia otros dispositivos o plataformas de procesamiento. Aunque el término fue propuesto por Kevin Ashton a finales de la década de los noventa \cite{Dhanda2020LightweightIoT}, solamente durante la última década, la disponibilidad de sensores de bajo costo, redes inalámbricas, servicios en la nube y plataformas de análisis masivo de datos permitieron su adopción a gran escala.
 
@@ -87,7 +87,7 @@ Los mecanismos criptográficos constituyen la principal línea de defensa frente
 
 Entre los ataques criptográficos más relevantes para dispositivos IoT se encuentran el análisis diferencial, el análisis lineal, los ataques por texto conocido, ataques por texto elegido, ataques sobre protocolos de autenticación y ataques dirigidos contra la gestión de claves.
 
-La llegada de la computación cuántica introduce además nuevas amenazas para los algoritmos asimétricos tradicionales. Algoritmos como RSA y la criptografía basada en curvas elípticas dependen de problemas matemáticos que podrían resolverse eficientemente mediante el algoritmo de Shor una vez existan computadores cuánticos suficientemente grandes \cite{Shor1994AlgorithmsFactoring,Ivezic2017ShorsCryptography}. Los algoritmos simétricos, a pesar de no ser vulnerables ante el algoritmo de Shor, ven reducida a la mitad su fortaleza efectiva frente al algoritmo de búsqueda de Grover \cite{Grover1996ASearch}. Aunque los algoritmos simétricos presentan una mayor resistencia frente a este escenario, continúan requiriendo claves de alta calidad y fuentes confiables de entropía para mantener sus propiedades de seguridad \cite{EncryptionConsulting2023Post-QuantumChallenges}.
+La llegada de la computación cuántica introduce además nuevas amenazas para los algoritmos asimétricos tradicionales. Algoritmos como RSA y la criptografía basada en curvas elípticas dependen de problemas matemáticos que podrían resolverse eficientemente mediante el algoritmo de Shor una vez existan computadores cuánticos suficientemente grandes \cite{Shor1994AlgorithmsFactoring}. Los algoritmos simétricos, a pesar de no ser vulnerables ante el algoritmo de Shor, ven reducida a la mitad su fortaleza efectiva frente al algoritmo de búsqueda de Grover \cite{Grover1996ASearch}. Aunque los algoritmos simétricos presentan una mayor resistencia frente a este escenario, continúan requiriendo claves de alta calidad y fuentes confiables de entropía para mantener sus propiedades de seguridad \cite{Turan2018RecommendationGeneration}.
 
 \subsection{Gestión de claves criptográficas}
 
@@ -143,7 +143,7 @@ El cifrado autenticado con datos asociados representa una de las construcciones 
 
 Esta estructura resulta adecuada para protocolos de comunicación en IoT porque permite proteger tanto la carga útil del mensaje como ciertos metadatos necesarios para el funcionamiento del protocolo. Por ejemplo, en una red de sensores puede ser necesario autenticar identificadores, contadores, encabezados o información de enrutamiento, aunque dichos campos deban permanecer visibles para los nodos intermedios. AEAD permite lograr este equilibrio al separar los datos cifrados de los datos únicamente autenticados. Si la etiqueta de autenticación no es válida, el algoritmo debe rechazar el mensaje, propiedad fundamental para evitar ataques de modificación, repetición o inyección de mensajes maliciosos. La formalización de las operaciones de cifrado y descifrado de un esquema AEAD se presenta en la Sección~\ref{sec:aead} de Marco teórico.
 
-\subsection{ASCON como estandar de referencia}
+\subsection{ASCON como estándar de referencia}
 
 ASCON es una familia de algoritmos criptográficos basada en una construcción tipo esponja. Fue diseñada para proporcionar cifrado autenticado y funciones hash ligeras con un balance positivo entre seguridad, rendimiento y bajo consumo de recursos \cite{Dobraunig2021AsconHashing,Bertoni2007SpongeFunctions,Dobraunig2021AsconProcess}. Su diseño se apoya en una permutación interna que opera sobre un estado de tamaño fijo y que alterna fases de absorción, transformación y extracción de salida.
 
@@ -200,7 +200,7 @@ La generación de números aleatorios constituye uno de los pilares fundamentale
 
 Un sistema criptográfico puede ser matemáticamente robusto y, aun así, resultar vulnerable si utiliza números aleatorios predecibles. Esta situación ha sido documentada en diversos incidentes históricos, donde fallas en generadores de números aleatorios permitieron recuperar claves privadas, romper protocolos de autenticación o reducir significativamente el espacio efectivo de búsqueda de un atacante. Por esta razón, la calidad de la aleatoriedad debe evaluarse como una propiedad crítica de todo sistema criptográfico.
 
-\subsection{Aleatoiedad, impredicibilidad y entropía}
+\subsection{Aleatoriedad, impredecibilidad y entropía}
 
 En criptografía, una secuencia aleatoria no solamente debe parecer estadísticamente uniforme, sino que debe ser impredecible para un adversario. Esta diferencia es de vital importancia. Una secuencia puede superar algunas pruebas estadísticas básicas y, sin embargo, ser generada por un proceso determinístico cuya semilla sea recuperable, en cuyo caso no sería segura desde el punto de vista criptográfico \cite{Shannon1949CommunicationSystems}.
 
@@ -280,7 +280,7 @@ En primer lugar, muchos dispositivos IoT carecen de generadores físicos de núm
 
 En segundo lugar, los sistemas críticos requieren no solamente eficiencia, sino también robustez frente a escenarios adversos. En aplicaciones como salud, transporte, energía o industria, una falla criptográfica puede generar consecuencias que van más allá de la pérdida de información, afectando procesos físicos o servicios esenciales.
 
-En tercer lugar, la transición hacia criptografía post-cuántica y arquitecturas cuánticamente conscientes exige fortalecer todos los componentes criptográficos del sistema. Aunque los algoritmos simétricos son menos vulnerables que RSA o ECC frente a ataques cuánticos, continúan dependiendo de claves y semillas generadas con alta entropía \cite{EncryptionConsulting2023Post-QuantumChallenges}.
+En tercer lugar, la transición hacia criptografía post-cuántica y arquitecturas cuánticamente conscientes exige fortalecer todos los componentes criptográficos del sistema. Aunque los algoritmos simétricos son menos vulnerables que RSA o ECC frente a ataques cuánticos, continúan dependiendo de claves y semillas generadas con alta entropía \cite{Grover1996ASearch,Turan2018RecommendationGeneration}.
 
 Por lo anterior, QPP-RNG constituye un objeto de estudio adecuado para esta investigación. Su evaluación permitirá determinar si puede integrarse dentro de una librería criptográfica ligera implementada en Rust y si su desempeño resulta viable frente a las restricciones propias de dispositivos IoT críticos.
 
@@ -298,7 +298,7 @@ No obstante, gran parte de estos trabajos se concentra en el desempeño del algo
 
 Por otro lado, la literatura sobre QPP muestra un marco teórico prometedor basado en espacios de permutaciones, no conmutatividad y crecimiento factorial del espacio de transformaciones. Estas propiedades han sido exploradas principalmente en el contexto de criptografía cuánticamente segura, variantes de AES-QPP y esquemas de cifrado simétrico o asimétrico \cite{Kuang2022QuantumCryptography,Kuang2024QPPGroup,Kuang2022QuantumSystems}. Sin embargo, todavía existe un número limitado de investigaciones orientadas a su implementación práctica en dispositivos IoT con restricciones severas.
 
-En particular, se identifican cuatro brechas principales. La primera es la falta de implementaciones abiertas y modulares de QPP-RNG, particularmente en lo que concierne dispositivos IoT. Segundo, la ausencia de evaluaciones sitemáticas de QPP-RNG en términos de memoria, tiempo de ejecución, portabilidad y calidad de entropía. Tercero, la limitada integración entre QPP-RNG y algoritmos de criptografía ligera como ASCON. Por último, la escasa exploración del uso de Rust como lenguaje seguro para implementar primitivas criptográficas ligeras y fuentes de entropía en sistemas embebidos.
+En particular, se identifican cuatro brechas principales. La primera es la falta de implementaciones abiertas y modulares de QPP-RNG, particularmente en lo que concierne dispositivos IoT. Segundo, la ausencia de evaluaciones sistemáticas de QPP-RNG en términos de memoria, tiempo de ejecución, portabilidad y calidad de entropía. Tercero, la limitada integración entre QPP-RNG y algoritmos de criptografía ligera como ASCON. Por último, la escasa exploración del uso de Rust como lenguaje seguro para implementar primitivas criptográficas ligeras y fuentes de entropía en sistemas embebidos.
 
 Estas brechas justifican el desarrollo de la presente investigación. En lugar de proponer un nuevo algoritmo de cifrado, este trabajo se enfoca en un componente transversal: la generación de entropía. La hipótesis central es que una adaptación optimizada de QPP-RNG puede constituir una fuente viable de aleatoriedad para dispositivos IoT críticos, siempre que su calidad estadística, consumo de recursos y facilidad de integración sean evaluados rigurosamente.
 

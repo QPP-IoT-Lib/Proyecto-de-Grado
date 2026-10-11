@@ -1,9 +1,81 @@
 %%=============================================================================
 %% ANEXO A
 %%=============================================================================
-\chapter{Anexo: Nombrar el anexo A de acuerdo con su contenido}
+\chapter{Anexo: Reproducibilidad de los experimentos}
+\label{anexo:reproducibilidad}
 
-Los Anexos son documentos o elementos que complementan el cuerpo del trabajo y
-que se relacionan, directa o indirectamente, con la investigación, tales como
-acetatos, cd, normas, etc. Los anexos deben ir numerados con letras y usando el
-estilo ``Título anexos''.
+Este anexo reúne la información necesaria para reproducir los experimentos del Capítulo~\ref{cap:resultados}.
+
+\section{Repositorios}
+
+\begin{table}[H]
+\centering
+\caption{Repositorios del proyecto}
+\label{tab:repositorios}
+\begin{tabularx}{\textwidth}{@{}L{0.20\textwidth}L{0.42\textwidth}Y@{}}
+\toprule
+\textbf{Repositorio} & \textbf{URL} & \textbf{Contenido} \\
+\midrule
+QPP-RNG-IoT & \url{https://github.com/QPP-IoT-Lib/QPP-RNG-IoT} & Generador, arnés, \textit{firmware} de pruebas, resultados \\
+ASCON-IoT & \url{https://github.com/QPP-IoT-Lib/ASCON-IoT} & Ascon-AEAD128, vectores, validación y desempeño \\
+QPP-IoT & \url{https://github.com/QPP-IoT-Lib/qpp-iot} & Fachada \texttt{QppEntropy} y fuentes por placa \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Los resultados detallados, con las salidas completas de las herramientas del NIST, se encuentran en el directorio \texttt{hil-results} del repositorio QPP-RNG-IoT. Los archivos hexadecimales del \textit{firmware} usado en las capturas largas de AVR se distribuyen precompilados, con sus sumas SHA-256, en \texttt{hil-firmware/portable}.
+
+\section{Comandos principales}
+
+\paragraph{Pruebas y comparación en el anfitrión.}
+\begin{lstlisting}
+cargo test --workspace --release
+cargo xtask compare
+cargo run --release -p stats --bin stats-cli -- full \
+    --dir <directorio-con-muestras> --out stats.json
+\end{lstlisting}
+
+\paragraph{Programación y captura en las placas} (placa: \texttt{mega2560}, \texttt{nano} o \texttt{nrf52840}; modo: \texttt{ref}, \texttt{rawsrc} o \texttt{iot}).
+\begin{lstlisting}
+hil-firmware/tools/run.sh nano iot
+uv run hil-firmware/tools/capture.py --port <puerto> \
+    --records 2500 --out hil-results/raw/nano-iot
+python3 hil-firmware/tools/extract.py iot \
+    hil-results/raw/nano-iot.bin hil-results/samples/nano-iot.bin
+hil-firmware/tools/smoke.sh nano
+\end{lstlisting}
+
+\paragraph{Estimación de min-entropía.}
+\begin{lstlisting}
+ea_non_iid -v <archivo> 8
+ea_iid -v <archivo> 8
+ea_non_iid -v -l 0,1000000 <residuos> 8    # E4, por ciclo
+\end{lstlisting}
+
+\paragraph{Traza por ciclo de la referencia en un anfitrión (E4).}
+\begin{lstlisting}
+cargo run --release -p qpp-rng-firmware --example pi_trace -- \
+    <ciclos> <salida.bin>
+\end{lstlisting}
+
+\paragraph{Ascon-AEAD128.}
+\begin{lstlisting}
+cargo test --workspace --all-targets      # repositorio ASCON-IoT
+scripts/build-avr.sh atmega328p           # repositorio QPP-IoT
+\end{lstlisting}
+
+\paragraph{Pila completa de extremo a extremo en las placas (repositorio QPP-IoT).}
+\begin{lstlisting}
+scripts/build-e2e.sh atmega328p           # AVR; grabar el ELF con avrdude
+(cd firmware/e2e && cargo build --release --target thumbv7em-none-eabihf)
+uv run scripts/e2e-check.py --port <puerto> --runs 3 \
+    --ascon-c <ascon_c_driver>            # nRF52840: --reset break
+\end{lstlisting}
+
+\section{Formato de los registros}
+
+Cada \textit{firmware} de pruebas transmite por UART, a 115\,200 baudios, una línea ASCII de encabezado que empieza con \texttt{QPPHIL} y describe el modo y los parámetros (por ejemplo, \texttt{QPPHIL avr iot-wdt N=6 credit=1 samples\_per\_byte=8}), seguida de registros de 9 bytes: \texttt{0xA5} y dos enteros de 32 bits en orden \textit{little-endian}. El programa de captura descarta el byte de sincronización y guarda 8 bytes por registro. En el modo de traza, los dos enteros son $n_p$ y $\Delta t$; en el modo de fuente cruda, la muestra de la fuente (y, en el nRF52840, un byte del RNG); en el modo IoT, cuatro bytes de salida y los ciclos que tomaron.
+
+\section{Configuración de las herramientas del NIST}
+
+La batería SP 800-22 del arnés copia el directorio \texttt{templates} de STS desde el directorio del ejecutable \texttt{assess}. Por eso, el directorio de STS debe estar en la ruta de búsqueda del sistema; no basta con un enlace simbólico al ejecutable. Antes de interpretar un informe, conviene comprobar que el archivo \texttt{stats.txt} de cada prueba no contenga la palabra \texttt{ABORTED}. La instalación usada en WSL se validó reproduciendo, fila por fila, el informe de SP 800-22 de la salida de 1\,MB del nRF52840 obtenido en macOS (1\,440 de 1\,452 combinaciones).

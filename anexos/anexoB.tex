@@ -1,11 +1,62 @@
 %%=============================================================================
 %% ANEXO B
 %%=============================================================================
-\chapter{Anexo: Nombrar el anexo B de acuerdo con su contenido}
+\chapter{Anexo: Derivaciones y tablas auxiliares}
+\label{anexo:derivaciones}
 
-A final del documento es opcional incluir índices o glosarios. Éstos son listas
-detalladas y especializadas de los términos, nombres, autores, temas, etc., que
-aparecen en el trabajo. Sirven para facilitar su localización en el texto. Los
-índices pueden ser alfabéticos, cronológicos, numéricos, analíticos, entre
-otros. Luego de cada palabra, término, etc., se pone coma y el número de la
-página donde aparece esta información.
+\section{Sesgo del bit 7 en la extracción de \texorpdfstring{$n_p$}{np} módulo 256}
+
+Sea $n_p \sim \text{Geom}(q)$ en $\{1, 2, \ldots\}$, con $\Pr[n_p = j] = q\, r^{j-1}$ y $r = 1 - q$. La probabilidad de que $n_p$ caiga en un intervalo $[a, b]$ es
+\begin{equation}
+    \Pr[a \leq n_p \leq b] = \sum_{j=a}^{b} q\, r^{j-1} = r^{a-1} - r^{b}.
+\end{equation}
+El bit 7 de $n_p \bmod 256$ vale 1 cuando $n_p \in [256\ell + 128,\; 256\ell + 255]$ para algún $\ell \geq 0$. Sumando sobre $\ell$,
+\begin{equation}
+    p_7 = \sum_{\ell = 0}^{\infty} \left( r^{256\ell + 127} - r^{256\ell + 255} \right) = \frac{r^{127} - r^{255}}{1 - r^{256}},
+\end{equation}
+que es la Ecuación~\eqref{eq:sesgo_bit7}. Para el XOR de $m$ valores independientes con la misma probabilidad $p_7$, el lema de apilamiento da
+\begin{equation}
+    \Pr[\text{XOR} = 1] = \frac{1}{2} - \frac{1}{2} \prod_{i=1}^{m} (1 - 2p_7) = \frac{1}{2} - \frac{1}{2}(1 - 2p_7)^m,
+\end{equation}
+que es la Ecuación~\eqref{eq:sesgo_xor}. Con $q = 1/120$ ($N = 5$), $p_7 = 0.25733$ y, con $m = 5$, $\Pr[\text{XOR} = 1] = 0.486536$. Con $q = 1/720$ ($N = 6$), $p_7 = 0.45628$ y, con $m = 4$, $\Pr[\text{XOR} = 1] = 0.499971$.
+
+\section{Umbrales de las pruebas de salud}
+
+La Tabla~\ref{tab:umbrales_salud} lista los umbrales que usa \texttt{qpp-rng-iot} según la min-entropía acreditada, con $\alpha = 2^{-20}$ y una ventana de $W = 512$ muestras para la APT. Los valores se calcularon de forma exacta con la distribución binomial. Un valor acreditado no tabulado se redondea hacia abajo al valor más cercano de la tabla, lo que solo puede hacer las pruebas más estrictas; un valor de 0 se trata como medio bit.
+
+\begin{table}[H]
+\centering
+\caption{Umbrales de las pruebas de salud según la min-entropía acreditada}
+\label{tab:umbrales_salud}
+\begin{tabular}{@{}ccc@{}}
+\toprule
+\textbf{$H$ acreditado (bits por muestra)} & \textbf{$C_{\text{RCT}}$} & \textbf{$C_{\text{APT}}$ ($W = 512$)} \\
+\midrule
+0 (tratado como 1/2) & 41 & 410 \\
+1 & 21 & 311 \\
+2 & 11 & 177 \\
+3 & 8 & 103 \\
+4 o más & 6 & 62 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Muestras por byte}
+
+La Tabla~\ref{tab:muestras_por_byte} lista las muestras que la variante IoT absorbe por byte, con 4 caminatas por byte, según el valor acreditado.
+
+\begin{table}[H]
+\centering
+\caption{Muestras absorbidas por byte de salida}
+\label{tab:muestras_por_byte}
+\begin{tabularx}{\textwidth}{@{}>{\centering\arraybackslash}X>{\centering\arraybackslash}X>{\centering\arraybackslash}X>{\centering\arraybackslash}X@{}}
+\toprule
+\textbf{$H$ acreditado} & \textbf{Muestras por caminata} & \textbf{Muestras por byte} & \textbf{Bits acreditados por byte} \\
+\midrule
+1 & 2 & 8 & 8 \\
+2 & 1 & 4 & 8 \\
+3 & 1 & 4 & 12 \\
+4 & 1 & 4 & 16 \\
+\bottomrule
+\end{tabularx}
+\end{table}

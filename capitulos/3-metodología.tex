@@ -2,5 +2,164 @@
 %% METODOLOGIA
 %%=============================================================================
 \chapter{Metodología}
+\label{cap:metodologia}
 
-El desarrollo del proyecto se divide en tres partes principales. La primera es la fase de diseño, la segunda es la fase de implementación y la tercera es la fase de validación.
+El desarrollo del proyecto se divide en tres fases: diseño, implementación y validación. Las tres no se ejecutaron de forma estrictamente secuencial, sino como ciclos cortos: cada resultado de validación que contradecía una hipótesis de diseño (por ejemplo, que el \textit{jitter} de ejecución existe en cualquier procesador) dio lugar a un cambio de diseño, a una nueva implementación y a una nueva ronda de pruebas. Este capítulo describe el enfoque general, el objetivo de cada fase, las plataformas utilizadas, los experimentos realizados y los criterios con los que se interpretaron sus resultados. El detalle técnico de lo construido se presenta en el Capítulo~\ref{cap:diseno}, y los resultados en el Capítulo~\ref{cap:resultados}.
+
+\section{Enfoque de la investigación}
+
+La investigación es aplicada, de carácter experimental y cuantitativo. Su pregunta central es si una adaptación de QPP-RNG puede servir como fuente de entropía para criptografía ligera en dispositivos IoT con recursos restringidos. Esa pregunta se descompuso en cuatro preguntas verificables:
+
+\begin{enumerate}
+    \item ¿Reproduce una implementación fiel de QPP-RNG, escrita en Rust, el comportamiento estadístico reportado en la literatura \cite{Vrana2025RawEvaluation}?
+    \item ¿Existe realmente entropía en el \textit{jitter} de ejecución de QPP-RNG cuando el generador corre sobre microcontroladores sin sistema operativo, caché ni otros maestros de bus?
+    \item Si no existe, ¿qué fuente física disponible en esos microcontroladores puede sustituirla, cuánta min-entropía aporta y cuánto cuesta en tiempo y memoria?
+    \item ¿Puede integrarse la salida del generador con un esquema de cifrado autenticado estándar (Ascon-AEAD128 \cite{Turan2025Ascon-BasedFunctions}) dentro de los límites de memoria de un microcontrolador de 8 bits?
+\end{enumerate}
+
+Un principio guía de todo el trabajo es que una fuente de entropía no se valida observando únicamente su salida. Como se discutió en la Sección~\ref{sec:evaluacion_estadistica}, superar NIST SP 800-22 o ENT es una condición necesaria, pero no suficiente: un generador determinístico bien diseñado también las supera. Por ello, cada afirmación sobre entropía se apoyó en tres tipos de evidencia: (i) la comparación de capturas independientes desde el mismo estado inicial, (ii) la estimación de min-entropía de la fuente cruda con NIST SP 800-90B \cite{Turan2018RecommendationGeneration}, y (iii) las pruebas estadísticas de la salida.
+
+\section{Fase de diseño}
+
+La fase de diseño partió de la propuesta de QPP-RNG \cite{Kuang2025QPP-RNG:Randomness,Kuang2025IID-BasedJitter} y de su evaluación multiplataforma \cite{Vrana2025RawEvaluation}, y tuvo tres objetivos.
+
+El primero fue fijar una \textbf{implementación de referencia} que sirviera como verdad base. Dado que la publicación describe el mecanismo de forma narrativa y no publica pseudocódigo ni código fuente, cada decisión de implementación que el artículo deja abierta (la forma de la caminata de convergencia, la combinación de los ciclos de sobremuestreo, la evolución de la semilla y los generadores internos) se documentó explícitamente junto al código, para que pudiera contrastarse con el artículo de forma independiente.
+
+El segundo fue definir una \textbf{arquitectura modular} que separara las responsabilidades que la literatura suele presentar juntas: la medición del tiempo, el generador de referencia, la variante optimizada para IoT, el acondicionamiento criptográfico y el cifrado autenticado. La separación tiene un propósito metodológico: la fuente cruda, que es lo que SP 800-90B caracteriza, debe poder evaluarse sin modificaciones, y cada variante debe poder compararse contra la referencia con las mismas herramientas.
+
+El tercero fue definir una \textbf{matriz de evaluación} común para todas las variantes. Las dimensiones de esa matriz se tomaron del Marco teórico (Tabla~\ref{tab:metricas_evaluacion}) y se ampliaron con dos dimensiones que resultaron decisivas: la salud de la fuente de \textit{jitter} en cada plataforma y la reproducibilidad entre reinicios. La Tabla~\ref{tab:matriz_evaluacion} resume la matriz.
+
+\begin{table}[H]
+\centering
+\caption{Matriz de evaluación aplicada a cada variante del generador}
+\label{tab:matriz_evaluacion}
+\begin{tabularx}{\textwidth}{@{}L{0.27\textwidth}L{0.33\textwidth}Y@{}}
+\toprule
+\textbf{Dimensión} & \textbf{Pregunta} & \textbf{Instrumento} \\
+\midrule
+Aleatoriedad (IID) & ¿Es la salida independiente e idénticamente distribuida? & NIST SP 800-90B, \texttt{ea\_iid} \\
+Min-entropía (no IID) & ¿Cuánta min-entropía puede acreditarse de forma conservadora? & NIST SP 800-90B, \texttt{ea\_non\_iid} \\
+Calidad estadística general & ¿Presenta la salida patrones detectables? & NIST SP 800-22 (STS 2.1.2), ENT, pruebas nativas \\
+Salud de la fuente & ¿Varía la fuente por causas físicas en el dispositivo real? & Capturas entre reinicios, estimación de la fuente cruda \\
+Desempeño & Bytes por segundo, latencia, tiempo al primer byte & \textit{Criterion}, contadores de ciclos \\
+Huella & Flash, RAM estática, tamaño por \textit{crate} & \texttt{cargo size}, \texttt{cargo bloat}, \texttt{avr-size} \\
+Corrección & ¿Es la implementación determinística dada la misma entrada y libre de pánicos? & Pruebas diferenciales y basadas en propiedades \\
+Integración & ¿Produce claves y \textit{nonces} utilizables por Ascon-AEAD128? & Pruebas de integración, vectores KAT y ACVP \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Fase de implementación}
+
+La implementación se realizó en Rust (edición 2024, versión mínima 1.97.1), en tres repositorios independientes dentro de la organización QPP-IoT-Lib:
+
+\begin{itemize}
+    \item \textbf{QPP-RNG-IoT}: los \textit{crates} del generador (referencia, variante IoT, acondicionamiento, temporizadores y rasgos comunes), el arnés de pruebas y el \textit{firmware} de pruebas sobre hardware.
+    \item \textbf{ASCON-IoT}: una implementación base de Ascon-AEAD128 conforme a NIST SP 800-232 \cite{Turan2025Ascon-BasedFunctions}, desacoplada de cualquier generador.
+    \item \textbf{QPP-IoT}: la fachada que combina los dos anteriores y añade las fuentes de entropía específicas de cada placa.
+\end{itemize}
+
+Todo el código del camino de generación es \texttt{no\_std} (no depende de la biblioteca estándar ni de memoria dinámica), de modo que el mismo código compila para el computador anfitrión, para Cortex-M y para AVR. La implementación siguió un orden fijo, de modo que cada pieza nueva se probara sobre una base ya validada: primero los rasgos comunes y los temporizadores, luego la referencia, después el arnés de pruebas completo, más adelante el \textit{firmware} de pruebas sobre hardware y la variante IoT y, por último, la integración con Ascon.
+
+\section{Fase de validación}
+
+\subsection{Plataformas}
+
+La Tabla~\ref{tab:plataformas} lista las plataformas utilizadas. Los tres microcontroladores representan dos extremos del IoT restringido: un núcleo AVR de 8 bits sin multiplicador de 64 bits ni divisor, y un Cortex-M4F de 32 bits con generador de números aleatorios en hardware. Los anfitriones sirven como control y como plataformas donde la referencia sí dispone de las fuentes de variabilidad que la literatura describe.
+
+\begin{table}[H]
+\centering
+\caption{Plataformas de evaluación}
+\label{tab:plataformas}
+\begin{tabularx}{\textwidth}{@{}L{0.25\textwidth}L{0.32\textwidth}Y@{}}
+\toprule
+\textbf{Plataforma} & \textbf{Procesador / reloj} & \textbf{Uso} \\
+\midrule
+Arduino Mega 2560 & ATmega2560, AVR de 8 bits, 16 MHz & Pruebas sobre hardware (HIL) \\
+Arduino Nano & ATmega328P, AVR de 8 bits, 16 MHz, 2 KB de RAM & Pruebas HIL \\
+makerdiary nRF52840 MDK & nRF52840, Cortex-M4F, 64 MHz & Pruebas HIL \\
+Computador Apple Silicon & macOS, ARM64 & Desarrollo, arnés completo, control \\
+Raspberry Pi 4 Model B & Cortex-A72 ×4, 0.6--1.5 GHz, Debian 13 & Referencia en un anfitrión rápido \\
+Computador de escritorio & Intel Core Ultra 7 265KF, Windows 11 & Referencia en un anfitrión rápido, capturas largas \\
+Computador portátil & Intel Core i5-1135G7, WSL2 & Línea base de desempeño de Ascon \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Antes de escribir cualquier \textit{firmware}, se respaldó el contenido original de la memoria Flash de las tres placas, de manera que cada experimento fuera reversible.
+
+\subsection{Niveles de prueba}
+
+La validación se organizó en cinco niveles de costo creciente:
+
+\begin{enumerate}
+    \item \textbf{Pruebas unitarias} de cada \textit{crate}, ejecutadas con \texttt{cargo test}.
+    \item \textbf{Pruebas diferenciales y basadas en propiedades}: determinismo de cada configuración frente a un reloj simulado, paridad de comportamiento entre candidatos y \textit{fuzzing} con \textit{proptest} para todos los anchos de permutación $N$ entre 1 y 8.
+    \item \textbf{Pruebas estadísticas de nivel 1}: cinco pruebas nativas en Rust (frecuencia monobit, rachas, $\chi^2$ de uniformidad de bytes con 255 grados de libertad, correlación serial y entropía de Shannon), con nivel de significancia $\alpha = 0.01$, ejecutadas sobre la muestra completa.
+    \item \textbf{Pruebas estadísticas de nivel 2}: las herramientas de referencia del NIST (\texttt{ea\_iid}, \texttt{ea\_non\_iid} y \texttt{assess} de STS 2.1.2) y ENT \cite{Walker2008ENT:Program}, sobre muestras de al menos 1\,000\,000 de bytes, el tamaño mínimo que recomienda SP 800-90B.
+    \item \textbf{Pruebas sobre hardware} (\textit{hardware-in-the-loop}, HIL): \textit{firmware} dedicado que transmite por UART al anfitrión los valores internos del generador o de la fuente física, para analizarlos con los niveles anteriores.
+\end{enumerate}
+
+\subsection{Experimentos}
+
+Se diseñaron seis experimentos. Cada uno responde a una de las preguntas de investigación y produce datos que los demás reutilizan.
+
+\paragraph{E1. Determinismo de la referencia entre reinicios.} En cada microcontrolador se ejecutó la referencia con su configuración por defecto ($N = 5$, \texttt{xorshift128+}), pero con sobremuestreo 1, de modo que cada ciclo de convergencia enviara al anfitrión su par $(n_p, \Delta t)$. Como la salida por defecto es el XOR de cinco valores consecutivos de $n_p \bmod 256$, esta traza determina por completo la salida. El experimento consiste en reiniciar la placa varias veces con la misma semilla y comparar las trazas posición por posición. Si la fuente aporta entropía, las trazas deben diferir desde los primeros ciclos; si no, son idénticas. El computador anfitrión se usó como control.
+
+\paragraph{E2. Caracterización de fuentes físicas independientes.} En cada microcontrolador se midió, en ciclos del reloj principal, el periodo de un oscilador físicamente independiente de la CPU: en AVR, la interrupción del perro guardián (\textit{watchdog}), alimentada por un oscilador RC de 128 kHz, con marcas de tiempo del Timer1, que cuenta el cristal de 16 MHz; en el nRF52840, el RTC alimentado por el oscilador RC de baja frecuencia (LFRC) contra el contador de ciclos, además del periférico RNG del chip. Primero se tomaron 20\,000 muestras por fuente, para una estimación preliminar, y luego 1\,000\,001, para una estimación sin advertencias de tamaño de muestra. La min-entropía se estimó con \texttt{ea\_non\_iid} sobre el byte bajo de cada muestra. El valor acreditado a cada fuente se fijó por debajo del valor estimado, redondeando hacia abajo y dejando margen.
+
+\paragraph{E3. Variante IoT sobre hardware.} Con la fuente de E2 y el valor acreditado, se ejecutó la variante \texttt{qpp-rng-iot} en las tres placas. Se midieron la divergencia entre reinicios, el rendimiento, las fallas de las pruebas de salud y la huella en Flash, y se aplicaron las pruebas de nivel 1, ENT y SP 800-90B a la salida. Se capturaron primero muestras cortas (10\,000 bytes por AVR y 50\,000 en el nRF52840) y luego muestras de 1\,000\,000 de bytes por placa, para la batería completa.
+
+\paragraph{E4. Entropía por ciclo de la referencia en anfitriones rápidos.} Se repitió la traza de E1 en una Raspberry Pi 4 y en un computador con Windows 11, con 5\,000\,005 y 2\,000\,000 de ciclos respectivamente. Como el valor $n_p$ de cada ciclo ya está determinado por la semilla, la entrada nueva que recibe la semilla en cada ciclo es $\Delta t$ \emph{condicionado} a $n_p$. Por ello, la min-entropía fresca por ciclo se estimó con \texttt{ea\_non\_iid} sobre el residuo $\Delta t - \operatorname{moda}(\Delta t \mid n_p)$, y se comparó con la entropía que el diseño contabiliza. Además, se generaron muestras de 1\,000\,000 de bytes de los cuatro candidatos de la librería, para aplicarles la batería completa.
+
+\paragraph{E5. Validación de Ascon-AEAD128.} La implementación base se verificó contra el conjunto completo de 1\,089 vectores de respuesta conocida (KAT), contra una validación local de extremo a extremo con el servidor ACVP del NIST, y de forma diferencial contra la implementación de referencia en C (\texttt{ascon-c}), incluidas pruebas negativas de autenticación.
+
+\paragraph{E6. Desempeño y huella.} Se midieron el rendimiento y la latencia de los candidatos en el anfitrión con \textit{Criterion}, los ciclos por byte en los microcontroladores con el Timer1 o el contador de ciclos, el tamaño del \textit{firmware}, el tamaño de la pila completa (fuente, generador, SHA-256 y Ascon) en AVR, y el tiempo de cifrado de Ascon-AEAD128 en el anfitrión. Por último, la pila completa se ejecutó de extremo a extremo en las tres placas: generación de clave y \textit{nonce} desde la fuente física, cifrado, descifrado y rechazo de mensajes alterados, con cada texto cifrado verificado contra \texttt{ascon-c} en el anfitrión, y con el tiempo de cada etapa y el consumo máximo de pila medidos en el dispositivo.
+
+\subsection{Criterios de interpretación}
+
+Para que los resultados no dependan de lecturas \textit{ad hoc}, se fijaron de antemano los siguientes criterios:
+
+\begin{itemize}
+    \item \textbf{Divergencia entre reinicios.} Dos capturas desde el mismo estado inicial se consideran independientes cuando el número de coincidencias posicionales es compatible con el azar. Para bytes uniformes se esperan $n/256$ coincidencias en $n$ posiciones; para $n_p \sim \text{Geom}(1/120)$ se esperan alrededor de 83 en 20\,000. Una coincidencia del 100\,\% indica una fuente sin entropía.
+    \item \textbf{Pruebas con múltiples subpruebas.} Con $\alpha = 0.01$, una fuente ideal falla en promedio el 1\,\% de las combinaciones de prueba y flujo. Por ejemplo, en SP 800-22 con 8 flujos de 1\,Mbit se esperan unas 14.5 fallas entre 1\,452 combinaciones. Se considera anómalo un número de fallas claramente superior a ese valor, o fallas que se repiten de forma sistemática en una misma prueba.
+    \item \textbf{Min-entropía acreditada.} El valor que se acredita a una fuente es menor o igual que la estimación de \texttt{ea\_non\_iid} sobre al menos 1\,000\,000 de muestras, redondeado hacia abajo. Las estimaciones de SP 800-90B sobre la salida acondicionada no se usan para acreditar entropía, porque una función hash borra precisamente los patrones que esos estimadores buscan.
+    \item \textbf{Tamaño de muestra.} Los resultados obtenidos sobre muestras menores que las recomendadas se reportan como pruebas de humo y no como validación, y se contrastan con controles del mismo tamaño tomados de \texttt{/dev/urandom}.
+\end{itemize}
+
+\subsection{Herramientas}
+
+La Tabla~\ref{tab:herramientas} resume las herramientas utilizadas. Las herramientas del NIST se compilaron desde sus fuentes oficiales en macOS, en la Raspberry Pi y en WSL; la equivalencia entre instalaciones se comprobó reproduciendo en WSL, fila por fila, un informe de SP 800-22 obtenido en macOS.
+
+\begin{table}[H]
+\centering
+\caption{Herramientas de construcción, captura y análisis}
+\label{tab:herramientas}
+\begin{tabularx}{\textwidth}{@{}L{0.32\textwidth}Y@{}}
+\toprule
+\textbf{Herramienta} & \textbf{Uso} \\
+\midrule
+Rust 1.97.1--1.99.0 (estable), \textit{nightly} para \texttt{avr-none} & Compilación del anfitrión y de los microcontroladores (\texttt{-Z build-std=core} en AVR) \\
+avr-gcc 14.3.0, avrdude 8.3 & Rutinas en C para AVR, programación de las placas Arduino \\
+probe-rs 0.32.0 & Programación del nRF52840 mediante CMSIS-DAP \\
+NIST SP 800-90B (\texttt{ea\_iid}, \texttt{ea\_non\_iid}) \cite{NISTEntropyAssessment} & Estimación de min-entropía \\
+NIST STS 2.1.2 (\texttt{assess}) \cite{Rukhin2010AApplications} & Batería SP 800-22 \\
+ENT (Fourmilab) & Estadísticas por byte \\
+\textit{Criterion}, \textit{proptest} & Medición de desempeño, pruebas basadas en propiedades \\
+\texttt{cargo size}, \texttt{cargo bloat} & Huella en memoria \\
+NIST ACVP-Server \cite{NISTACVPServer}, \texttt{ascon-c} \cite{AsconC} & Validación de Ascon-AEAD128 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Amenazas a la validez}
+
+Se identificaron las siguientes limitaciones, que condicionan la generalización de los resultados:
+
+\begin{itemize}
+    \item \textbf{Validez externa.} Se evaluó un ejemplar de cada placa. La entropía de un oscilador RC varía entre ejemplares, temperaturas y tensiones de alimentación, de modo que el valor acreditado debe reevaluarse en cada modelo de dispositivo que se despliegue.
+    \item \textbf{Tamaño de muestra.} Las muestras cortas de E3 están por debajo de lo que recomienda SP 800-90B. Por ello se repitieron con muestras de 1\,000\,000 de bytes, y sus resultados se reportan por separado.
+    \item \textbf{Fidelidad de la referencia.} La referencia es una interpretación documentada de un artículo sin código publicado. Las diferencias con la implementación original de los autores no pueden descartarse; solamente pueden hacerse explícitas.
+    \item \textbf{Entorno de medición.} Las mediciones de desempeño de Ascon se tomaron en WSL2, un entorno virtualizado sin control de frecuencia, y no son extrapolables a los microcontroladores.
+    \item \textbf{Validación formal.} Las validaciones con ACVP y con las herramientas del NIST son locales y reproducibles, pero no constituyen una certificación CAVP ni una validación de fuente de entropía ante el NIST.
+\end{itemize}

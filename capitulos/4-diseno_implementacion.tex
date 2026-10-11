@@ -1,0 +1,362 @@
+%%=============================================================================
+%% DISENO E IMPLEMENTACION
+%%=============================================================================
+\chapter{Diseño e implementación}
+\label{cap:diseno}
+
+Este capítulo describe la solución construida: la arquitectura de la librería, la implementación de referencia de QPP-RNG, la variante optimizada para IoT, el acondicionamiento criptográfico, las fuentes físicas de entropía, el arnés de pruebas y la integración con Ascon-AEAD128. Varias decisiones de diseño de este capítulo fueron consecuencia directa de resultados experimentales. En esos casos se adelanta aquí el motivo, y el dato completo se presenta en el Capítulo~\ref{cap:resultados}.
+
+\section{Arquitectura general}
+\label{sec:arquitectura}
+
+La solución se organiza en tres repositorios que se versionan por separado y se combinan en una fachada (Figura~\ref{fig:arquitectura}). La separación sigue un criterio de auditabilidad: la implementación de referencia, que actúa como verdad base, no debe contaminarse con las optimizaciones de la variante IoT; la fuente cruda, que es lo que SP 800-90B caracteriza, debe poder evaluarse sin el acondicionador; y el cifrado autenticado no debe depender de un generador en particular.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    font=\small,
+    caja/.style={draw, rounded corners=2pt, align=center, minimum height=8mm, inner sep=3pt, text width=34mm},
+    repo/.style={draw, dashed, rounded corners=4pt, inner sep=5pt},
+    flecha/.style={-{Stealth[length=2mm]}, thick}
+]
+\node[caja] (core) {\texttt{rng-core}\\rasgos comunes};
+\node[caja, right=7mm of core] (timer) {\texttt{entropy-timer}\\temporizadores};
+\node[caja, below=7mm of core] (ref) {\texttt{qpp-rng-reference}\\referencia};
+\node[caja, below=7mm of timer] (iot) {\texttt{qpp-rng-iot}\\variante IoT};
+\node[caja, right=7mm of iot] (cond) {\texttt{conditioning}\\SHA-256};
+\node[caja, below=7mm of ref] (harness) {\texttt{test-harness}\\\texttt{xtask}};
+\node[caja, below=7mm of iot] (hil) {\texttt{hil-firmware}\\pruebas en placas};
+\node[repo, fit=(core)(timer)(ref)(iot)(cond)(harness)(hil), label={[font=\small\bfseries]above:Repositorio QPP-RNG-IoT}] (r1) {};
+
+\node[caja, below=20mm of hil] (ascon) {\texttt{ascon-iot}\\Ascon-AEAD128};
+\node[repo, fit=(ascon), label={[font=\small\bfseries]below:ASCON-IoT}] (r2) {};
+
+\node[caja, right=7mm of ascon] (fachada) {\texttt{qpp-iot}\\\texttt{QppEntropy}};
+\node[caja, below=7mm of fachada] (boards) {\texttt{qpp-iot-boards}\\fuentes por placa};
+\node[repo, fit=(fachada)(boards), label={[font=\small\bfseries]below:QPP-IoT}] (r3) {};
+
+\draw[flecha] (ref) -- (core);
+\draw[flecha] (ref) -- (timer);
+\draw[flecha] (iot) -- (core);
+\draw[flecha] (fachada) -- (ascon);
+\draw[flecha] (fachada.north) -- (fachada.north |- r1.south);
+\draw[flecha] (fachada) -- (boards);
+\end{tikzpicture}
+\caption{Repositorios y \textit{crates} de la solución. Las flechas indican las principales dependencias.}
+\label{fig:arquitectura}
+\end{figure}
+
+La Tabla~\ref{tab:crates} describe cada componente. Todos los que forman parte del camino de generación, es decir, todos salvo el arnés, el orquestador y los ejecutables de medición y de pruebas, compilan sin la biblioteca estándar y sin memoria dinámica.
+
+\begin{table}[H]
+\centering
+\caption{Componentes de la solución}
+\label{tab:crates}
+\begin{tabularx}{\textwidth}{@{}L{0.30\textwidth}Y@{}}
+\toprule
+\textbf{Componente} & \textbf{Responsabilidad} \\
+\midrule
+\texttt{rng-core} & Rasgo \texttt{QppRngSource}, que extiende \texttt{rand\_core::Rng} con diagnósticos internos del último byte generado. \\
+\texttt{entropy-timer} & Lectura del contador de alta resolución de cada plataforma mediante rutinas en C, y calibración de su resolución real. \\
+\texttt{qpp-rng-reference} & Implementación fiel de QPP-RNG según Vrana et al.\ \cite{Vrana2025RawEvaluation}. \\
+\texttt{qpp-rng-iot} & Variante para microcontroladores: fuente física independiente, pruebas de salud continuas, generación de permutaciones de bajo costo. \\
+\texttt{conditioning} & Acondicionador SHA-256 con compresión 2:1. \\
+\texttt{qpp-rng-firmware} & Un ejecutable por candidato, para medir la huella de cada uno por separado. \\
+\texttt{test-harness} & Arnés de evaluación: \texttt{candidates}, \texttt{stats}, \texttt{bench}, \texttt{footprint}, \texttt{differential} y \texttt{report}. \\
+\texttt{xtask} & Orquestador que ejecuta la comparación completa (\texttt{cargo xtask compare}). \\
+\texttt{hil-firmware} & \textit{Firmware} de prueba para AVR y nRF52840, y herramientas de captura y análisis en el anfitrión. \\
+\texttt{ascon-iot} & Ascon-AEAD128 (NIST SP 800-232) sobre la implementación de RustCrypto, con generación de claves y \textit{nonces} desde cualquier \texttt{rand\_core::Rng}. \\
+\texttt{qpp-iot}, \texttt{qpp-iot-boards} & Fachada \texttt{QppEntropy} (fuente $\rightarrow$ QPP-RNG $\rightarrow$ SHA-256 $\rightarrow$ \texttt{Rng}) y una fuente física por placa. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Rasgos comunes}
+
+Todos los generadores implementan el rasgo \texttt{Rng} del ecosistema \texttt{rand\_core} (versión 0.10), de modo que pueden usarse en cualquier librería de Rust que reciba un generador, incluida \texttt{ascon-iot}. Sobre ese rasgo, \texttt{rng-core} define \texttt{QppRngSource}, que agrega una sola operación: \texttt{diagnostics()}, la cual expone el ancho de la permutación en bits, el último valor de $n_p$ y la última medición de tiempo. El arnés usa estos diagnósticos para reconstruir el comportamiento interno del generador sin modificar su camino de ejecución. Como ninguno de los dos rasgos tiene métodos genéricos, ambos admiten objetos de rasgo (\texttt{Box<dyn QppRngSource>}), lo que permite que el arnés recorra una lista heterogénea de candidatos.
+
+Ningún generador implementa todavía el rasgo marcador \texttt{rand\_core::CryptoRng}. Ese marcador es una afirmación de seguridad hacia el código que lo consume, y se reservó para cuando cada variante supere todas las pruebas de validación.
+
+\section{Temporizadores de alta resolución}
+
+El \textit{crate} \texttt{entropy-timer} encapsula, detrás del rasgo \texttt{HighResTimer}, el contador más barato y de mayor resolución que ofrece cada plataforma (Tabla~\ref{tab:temporizadores}). La lectura se realiza en C, con una rutina por plataforma que se selecciona en tiempo de compilación, de modo que el binario contiene exactamente una.
+
+\begin{table}[H]
+\centering
+\caption{Contadores utilizados por plataforma}
+\label{tab:temporizadores}
+\begin{tabularx}{\textwidth}{@{}L{0.30\textwidth}Y@{}}
+\toprule
+\textbf{Plataforma} & \textbf{Contador} \\
+\midrule
+Windows & \texttt{QueryPerformanceCounter} \\
+macOS en Apple Silicon & \texttt{mach\_absolute\_time} \\
+Linux o macOS en x86 & \texttt{RDTSC} si el TSC es invariante; si no, \texttt{clock\_gettime} \\
+Linux en ARM64 (Raspberry Pi 4) & Registro \texttt{CNTVCT\_EL0} del temporizador genérico (54 MHz en la Pi 4) \\
+Linux en ARM32 & Contador de ciclos de la PMU, con respaldo a \texttt{clock\_gettime} \\
+ESP32 & Registro \texttt{CCOUNT} \\
+AVR (ATmega328P, ATmega2560) & Timer1 sin preescalador, extendido a 32 bits por la interrupción de desbordamiento \\
+Cortex-M (nRF52840) & \texttt{CYCCNT} de la unidad DWT \\
+Otros sistemas Unix & \texttt{clock\_gettime(CLOCK\_MONOTONIC)} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Resolución adaptativa.} El artículo de referencia presenta como una de sus contribuciones un mecanismo de resolución de reloj adaptativa, que compensa las distintas granularidades de los temporizadores \cite{Vrana2025RawEvaluation}. La normalización que describe es
+\begin{equation}
+    \delta = \left\lfloor \frac{\Delta t}{k} \right\rfloor \bmod 256,
+    \label{eq:normalizacion}
+\end{equation}
+donde $\Delta t$ es la diferencia entre dos lecturas del contador y $k$ es su resolución nativa. Una primera versión fijó $k$ como una constante por plataforma, y falló en la práctica: en un computador con Windows, la granularidad real de \texttt{QueryPerformanceCounter} no coincidía con la constante, y la salida colapsó sobre un único byte dominante. El motivo es que una misma interfaz del sistema operativo puede estar respaldada por contadores físicos distintos según el \textit{chipset} y el \textit{firmware}. Por ello, la implementación mide $k$ empíricamente al construir el generador: toma 256 pares de lecturas consecutivas, tras un breve calentamiento, y usa la menor diferencia no nula, acotada al intervalo $[1, 255]$. Solo si el contador no avanza durante la calibración recurre a la constante nominal. En la Raspberry Pi 4 y en el computador con Windows, la calibración produjo $k = 1$, frente a valores nominales de 34 y 100.
+
+\section{Implementación de referencia de QPP-RNG}
+\label{sec:referencia}
+
+\subsection{Mecanismo}
+
+El \textit{crate} \texttt{qpp-rng-reference} implementa el generador descrito por Vrana, Lou y Kuang \cite{Vrana2025RawEvaluation}. El generador mantiene una semilla de 128 bits, $s$, y repite el siguiente ciclo de convergencia (Figura~\ref{fig:ciclo_referencia}):
+
+\begin{enumerate}
+    \item Se reinicializa el generador interno $P$ con la semilla $s$.
+    \item Partiendo de la permutación identidad de un arreglo de $N$ elementos, se genera repetidamente un \textit{pad} de permutación con el algoritmo de Fisher--Yates \cite{Durstenfeld1964Algorithm235}, usando $P$, y se compone con el estado actual, hasta que el estado vuelve a ser la identidad. El número de \textit{pads} generados es $n_p$.
+    \item Se mide con el temporizador el tiempo $\Delta t$ de todo el ciclo, se normaliza según la Ecuación~\eqref{eq:normalizacion} y se incorpora a la semilla: $s \leftarrow (s \ll 8) \,\|\, \delta$.
+    \item El valor crudo del ciclo es $n_p \bmod 256$.
+\end{enumerate}
+
+Para $N = 5$, el valor por defecto del artículo, $\log_2 5! \approx 6.9$ bits, menos de un byte. Por ello, el artículo prescribe repetir el ciclo $m \geq 4$ veces por byte de salida; la configuración por defecto usa $m = 5$.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    font=\small,
+    caja/.style={draw, rounded corners=2pt, align=center, minimum height=10mm, inner sep=3pt, text width=27mm},
+    etiqueta/.style={font=\scriptsize},
+    flecha/.style={-{Stealth[length=2mm]}, thick}
+]
+\node[caja] (seed) {Semilla $s$\\(128 bits)};
+\node[caja, right=15mm of seed] (prng) {Generador interno $P$\\\texttt{xorshift128+}\\o NEXT\_X48};
+\node[caja, right=15mm of prng] (walk) {Caminata en $S_N$\\hasta la identidad\\($n_p$ \textit{pads})};
+\node[caja, below=14mm of walk, text width=38mm] (out) {$y \leftarrow y \oplus (n_p \bmod 256)$\\($m$ ciclos por byte)};
+\node[caja, below=14mm of prng, text width=33mm] (dt) {$\delta = \lfloor \Delta t / k \rfloor \bmod 256$};
+\draw[flecha] (seed) -- node[etiqueta, above]{reinicia} (prng);
+\draw[flecha] (prng) -- node[etiqueta, above]{\textit{pads}} (walk);
+\draw[flecha] (walk) -- node[etiqueta, right]{$n_p$} (out);
+\draw[flecha] (walk.south west) -- node[etiqueta, above left, pos=0.4]{$\Delta t$} (dt.north east);
+\draw[flecha] (dt.west) -| node[etiqueta, below, pos=0.3]{$s \leftarrow (s \ll 8)\,\|\,\delta$} (seed.south);
+\end{tikzpicture}
+\caption{Ciclo de convergencia de la implementación de referencia.}
+\label{fig:ciclo_referencia}
+\end{figure}
+
+El Listado~\ref{lst:ciclo} muestra el núcleo del ciclo de convergencia, en una versión simplificada del código.
+
+\begin{lstlisting}[language=Rust, caption={Ciclo de convergencia de la referencia (simplificado)}, label={lst:ciclo}]
+fn run_convergence_cycle(&mut self) -> (u64, u64) {
+    self.prng.seed(self.seed);
+    let identity: [u8; N] = core::array::from_fn(|i| i as u8);
+    let mut current = identity;
+    let mut n_p: u64 = 0;
+    let t0 = self.timer.tick();
+    loop {
+        n_p += 1;
+        let pad = generate_permutation::<P, N>(&mut self.prng);
+        current = apply_permutation(&current, &pad);
+        core::hint::black_box(&current); // impide colapsar el bucle
+        if current == identity { break; }
+    }
+    let t1 = self.timer.tick();
+    (n_p, t1.wrapping_sub(t0))
+}
+\end{lstlisting}
+
+\subsection{Decisiones de fidelidad}
+
+El artículo describe el mecanismo en prosa, con algunas fórmulas, pero no publica pseudocódigo ni código fuente. Las decisiones que deja abiertas se tomaron así:
+
+\begin{itemize}
+    \item \textbf{Caminata de convergencia.} Se implementó como una caminata aleatoria en el grupo simétrico $S_N$: desde la identidad, se multiplica a la derecha por permutaciones independientes y uniformes hasta volver a la identidad. Como el producto de un estado cualquiera por una permutación uniforme independiente es uniforme, cada paso regresa a la identidad con probabilidad $1/N!$, y $n_p$ sigue una distribución geométrica de parámetro $q = 1/N!$, con media $N!$. Esto es coherente con la contabilidad de entropía $e = \log_2 N!$ del artículo.
+    \item \textbf{Combinación del sobremuestreo.} El artículo no especifica cómo se combinan los $m$ ciclos por byte. Se eligió el XOR de los $m$ valores $n_p \bmod 256$, porque el XOR de muestras independientes es al menos tan impredecible como cualquiera de ellas.
+    \item \textbf{Evolución de la semilla.} El desplazamiento $s \leftarrow (s \ll 8) + \delta$ se aplicó a la semilla completa de 128 bits, como un registro de desplazamiento único, y el generador interno se reinicia antes de \emph{cada} ciclo, de acuerdo con la propiedad de independencia que describe el artículo.
+    \item \textbf{Generadores internos.} \texttt{Xorshift128Plus} sigue la construcción de Vigna \cite{Vigna2017FurtherGenerators}; \texttt{NextX48} sigue el generador congruencial lineal de 48 bits de \texttt{java.util.Random} (multiplicador \texttt{0x5DEECE66D}, incremento \texttt{0xB}), que el artículo cita para NEXT\_X48. Los índices de Fisher--Yates se obtienen con la reducción de Lemire sobre 64 bits \cite{Lemire2019FastInterval}.
+\end{itemize}
+
+\subsection{Sensibilidad a la optimización del compilador}
+
+La fuente de entropía de la referencia es el tiempo de ejecución de su propio bucle, de modo que un compilador optimizador puede destruirla. Esto se comprobó experimentalmente: con el perfil de compilación de la librería (optimización completa, LTO y una sola unidad de generación de código), el compilador demostró que los efectos del bucle sobre la memoria eran locales, lo redujo a una ejecución casi sin variación temporal y el registro de la semilla quedó atrapado en un punto fijo. En una muestra de 5\,000 bytes, un único valor apareció en más del 70\,\% de las posiciones. El artículo evita este problema compilando con \texttt{-O0} \cite{Vrana2025RawEvaluation}. En la librería se aplicaron dos medidas: se fijó el nivel de optimización 0 para \texttt{qpp-rng-reference} y \texttt{entropy-timer} en todos los perfiles, y se insertó una barrera \texttt{core::hint::black\_box} en cada iteración del bucle. Una prueba de regresión verifica, con el temporizador real, que ningún valor ocupe más del 10\,\% de una muestra de 2\,000 bytes.
+
+\subsection{Sesgo estructural de la extracción}
+\label{sec:sesgo}
+
+La extracción $n_p \bmod 256$ tiene un sesgo que no depende del temporizador. Como $n_p \sim \text{Geom}(q)$ con $q = 1/N!$, la probabilidad de que el bit 7 del valor extraído valga 1 es
+\begin{equation}
+    p_7 = \Pr\left[(n_p \bmod 256) \geq 128\right] = \frac{r^{127} - r^{255}}{1 - r^{256}}, \qquad r = 1 - q.
+    \label{eq:sesgo_bit7}
+\end{equation}
+Para $N = 5$, la media de $n_p$ es 120, menor que 256: la cola geométrica decae antes de dar una vuelta completa al módulo, y $p_7 = 0.2573$. El XOR de $m$ valores independientes reduce el sesgo de forma geométrica:
+\begin{equation}
+    \Pr[\text{bit 7 del XOR} = 1] = \frac{1}{2} - \frac{1}{2}\,(1 - 2p_7)^m.
+    \label{eq:sesgo_xor}
+\end{equation}
+Con $m = 5$, la probabilidad resultante es $0.48654$, todavía detectable con un millón de bytes. La Tabla~\ref{tab:sesgo} resume los valores exactos. Este análisis motivó dos decisiones de diseño: acondicionar siempre la salida cruda antes de usarla como material de clave (Sección~\ref{sec:acondicionamiento}) y usar $N = 6$ en la variante IoT (Sección~\ref{sec:variante_iot}).
+
+\begin{table}[H]
+\centering
+\caption{Probabilidad exacta de que el bit 7 valga 1, según las Ecuaciones~\eqref{eq:sesgo_bit7} y~\eqref{eq:sesgo_xor}}
+\label{tab:sesgo}
+\begin{tabular}{@{}cccc@{}}
+\toprule
+$N$ & Media de $n_p$ & Un ciclo & XOR de $m$ ciclos \\
+\midrule
+5 & 120 & 0.2573 & 0.4723 ($m = 4$), 0.48654 ($m = 5$) \\
+6 & 720 & 0.4563 & 0.49997 ($m = 4$) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Acondicionamiento con SHA-256}
+\label{sec:acondicionamiento}
+
+El \textit{crate} \texttt{conditioning} implementa un componente de acondicionamiento en el sentido de SP 800-90B: \texttt{Sha256Conditioner} acumula 64 bytes crudos de la fuente que envuelve, los comprime con SHA-256 \cite{NIST2015SecureHashStandard} y entrega los 32 bytes del resumen antes de solicitar el siguiente bloque. La relación de compresión 2:1 se eligió a partir de la min-entropía medida en la salida cruda de la referencia (6.6 a 7.3 bits por byte): $64 \times 6.6 \approx 425$ bits de entrada para 256 bits de salida superan por más de 100 bits el margen habitual de 64 bits por encima del tamaño de la salida.
+
+El acondicionador se mantuvo en un \textit{crate} propio por la misma razón que separa la referencia de la variante IoT: la fuente cruda sigue disponible sin modificaciones para su evaluación, y el arnés puede registrar cada candidato en forma cruda y acondicionada. Su documentación advierte que no debe estimarse la entropía de la salida acondicionada con \texttt{ea\_non\_iid}: un buen \textit{hash} borra los patrones de corto alcance que esos estimadores buscan, en ambas direcciones.
+
+\section{Variante para microcontroladores: \texttt{qpp-rng-iot}}
+\label{sec:variante_iot}
+
+\subsection{Motivación}
+
+El experimento E1 (Sección~\ref{sec:res_determinismo}) mostró que la referencia no tiene entropía en los tres microcontroladores: desde un reinicio, cada placa reproduce exactamente la misma traza $(n_p, \Delta t)$. En un núcleo sin caché, sin sistema operativo y sin otros maestros de bus, cada instrucción tarda un número fijo de ciclos y el temporizador cuenta el mismo reloj que la CPU, de modo que $\Delta t$ es una función determinística de la semilla. La variante IoT conserva la estructura de QPP-RNG, pero cambia la fuente de entropía y, de paso, el costo del cómputo. La Tabla~\ref{tab:cambios_iot} resume las diferencias.
+
+\begin{table}[H]
+\centering
+\caption{Diferencias entre la referencia y la variante IoT}
+\label{tab:cambios_iot}
+\begin{tabularx}{\textwidth}{@{}L{0.17\textwidth}L{0.25\textwidth}L{0.27\textwidth}Y@{}}
+\toprule
+\textbf{Aspecto} & \textbf{Referencia} & \textbf{Variante IoT} & \textbf{Motivo} \\
+\midrule
+Fuente & Tiempo del propio bucle, medido con el reloj de la CPU & Rasgo \texttt{JitterSource}: un oscilador independiente medido en ciclos de la CPU & El tiempo del propio bucle es determinístico en microcontroladores \\
+Pruebas de salud & Ninguna & RCT y APT de SP 800-90B sobre cada muestra & Una fuente degradada debe fallar de forma explícita \\
+Generador de \textit{pads} & \texttt{xorshift128+}, semilla de 128 bits, Lemire de 64 bits & \texttt{xorshift32} sembrado con \texttt{fmix32}, Lemire de 8 bits con tabla de umbrales & La aritmética de 64 y 128 bits es costosa en un núcleo de 8 bits \\
+Caminata & Generar \textit{pad}, componer en un arreglo nuevo, comparar & Intercambios de Fisher--Yates aplicados sobre el estado, con salida temprana & La misma caminata con la mitad del tráfico de memoria \\
+$N$ & 5 (media de $n_p$: 120) & 6 (media: 720) & Elimina el sesgo estructural (Tabla~\ref{tab:sesgo}) \\
+Contabilidad & Una medición por ciclo, 5 ciclos por byte & $\lceil 8/H \rceil$ muestras por byte, repartidas en 4 caminatas fijas & Separa ``suficiente entropía'' de ``suficiente cómputo'' \\
+Interfaz & \texttt{Rng} (infalible) & \texttt{TryRng<Error = HealthError>} & Los errores son reportables en el dispositivo \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Fuente de entropía}
+
+El rasgo \texttt{JitterSource} tiene un único método, \texttt{sample()}, que bloquea hasta la siguiente medición y la retorna como un entero de 32 bits con la entropía en los bits de menor orden. La documentación del rasgo establece la condición que una implementación debe cumplir: medir algo cuyo reloj sea físicamente independiente de la CPU (un oscilador RC separado, un oscilador de anillo o un evento externo), en unidades de un contador síncrono con la CPU. Medir trabajo de la propia CPU con un contador de la propia CPU no es una implementación válida en estos dispositivos.
+
+\subsection{Pruebas de salud continuas}
+
+Cada muestra cruda pasa por las dos pruebas continuas de SP 800-90B \cite{Turan2018RecommendationGeneration}: la prueba de conteo de repeticiones (RCT) y la prueba de proporción adaptativa (APT). Ambas se configuran a partir de la min-entropía $H$ acreditada a la fuente, con una tasa de falsos positivos $\alpha = 2^{-20}$:
+\begin{equation}
+    C_{\text{RCT}} = 1 + \left\lceil \frac{20}{H} \right\rceil, \qquad
+    C_{\text{APT}} = 1 + \operatorname{CRITBINOM}\!\left(W,\, 2^{-H},\, 1 - 2^{-20}\right), \quad W = 512.
+\end{equation}
+La RCT falla si un mismo valor se repite $C_{\text{RCT}}$ veces seguidas; la APT falla si, en una ventana de $W$ muestras, el primer valor aparece $C_{\text{APT}}$ veces o más. Para $H = 1$, los umbrales son 21 y 311; para $H \geq 4$, 6 y 62. Una falla se reporta como \texttt{HealthError} en lugar de producir bytes de baja entropía en silencio. Estas pruebas detectan una fuente atascada o degradada, pero no pueden detectar una fuente que varía de forma completamente determinística, como la referencia en un microcontrolador: ese modo de falla tiene que eliminarse en el diseño, eligiendo una fuente físicamente independiente.
+
+\subsection{Contabilidad de entropía}
+
+En la referencia, una medición de tiempo equivale a un ciclo de convergencia, de modo que una fuente pobre obliga a ejecutar muchas caminatas costosas por byte. En la variante IoT, ambas cantidades se separan. El número de muestras por byte se deriva de la min-entropía acreditada, de modo que cada byte quede respaldado por al menos 8 bits acreditados:
+\begin{equation}
+    \text{muestras por caminata} = \max\!\left(1,\; \left\lceil \frac{\lceil 8 / H \rceil}{4} \right\rceil \right),
+\end{equation}
+mientras que el número de caminatas por byte se fija en 4, lo justo para aplanar el sesgo de la extracción con $N = 6$ (Tabla~\ref{tab:sesgo}). Con $H = 1$ (AVR), cada byte absorbe 8 muestras; con $H = 4$ (RNG del nRF52840), 4. Cada muestra se incorpora a una semilla de 64 bits como $s \leftarrow (s \ll 8) \oplus x$. Antes del primer byte, el generador absorbe 8 muestras adicionales para que la salida inicial no dependa de la semilla nula.
+
+\subsection{Generación de permutaciones de bajo costo}
+
+En el ATmega2560, la referencia gasta en promedio unos 1\,090 ciclos por índice de Fisher--Yates, casi todos en aritmética de 64 y 128 bits emulada por un núcleo de 8 bits. La variante IoT reduce ese costo en tres pasos:
+
+\begin{itemize}
+    \item \textbf{Generador más estrecho.} El generador de \textit{pads} no es la fuente de entropía; solamente expande la semilla en índices. Por eso se reemplazó \texttt{xorshift128+} por \texttt{xorshift32} de Marsaglia \cite{Marsaglia2003XorshiftRNGs}, sembrado con la función de mezcla \texttt{fmix32} aplicada a la semilla de 64 bits. Un paso de \texttt{xorshift32} produce cuatro bytes.
+    \item \textbf{Reducción de Lemire de 8 bits.} Para $N \leq 8$, cada índice está acotado por 8, de modo que un byte aleatorio y una multiplicación de $8 \times 8 \rightarrow 16$ bits (una sola instrucción \texttt{mul} en AVR) bastan para una reducción de Lemire exactamente insesgada \cite{Lemire2019FastInterval}. El umbral de rechazo $256 \bmod b$ se toma de una tabla, porque AVR no tiene instrucción de división y la operación módulo en software consumía cerca del 85\,\% del tiempo de la caminata.
+    \item \textbf{Caminata fusionada.} En lugar de generar un \textit{pad} completo y luego componerlo en un arreglo nuevo, los intercambios de Fisher--Yates se aplican directamente sobre el estado, y la comparación con la identidad termina en la primera diferencia. Una prueba unitaria verifica que esta caminata es la misma, con los mismos índices, que la composición explícita.
+\end{itemize}
+
+\subsection{Interfaz}
+
+\texttt{QppRngIot} implementa \texttt{TryRng<Error = HealthError>}, de modo que una falla de salud es un valor de retorno. Para las interfaces que exigen un generador infalible, el envoltorio \texttt{PanicOnHealthFailure} convierte la falla en un pánico e implementa \texttt{QppRngSource}. La salida de la variante IoT es salida cruda de una fuente de entropía y, al igual que la de la referencia, debe acondicionarse antes de usarse como material de clave.
+
+\section{Fuentes físicas por plataforma}
+\label{sec:fuentes}
+
+\paragraph{AVR: perro guardián contra Timer1.} El perro guardián de los ATmega se alimenta de un oscilador RC interno de 128 kHz, independiente del cristal de 16 MHz que alimenta la CPU y el Timer1. La fuente configura el perro guardián en modo de solo interrupción con su periodo más corto (alrededor de 16 ms) y, en cada interrupción, guarda la lectura del Timer1 en un búfer circular de 16 posiciones. La muestra es la diferencia entre dos marcas de tiempo, es decir, el periodo del oscilador RC medido en ciclos del cristal. El ruido de fase térmico del oscilador RC se acumula durante el periodo y aparece en los bits bajos de la medición.
+
+\paragraph{nRF52840: generador en hardware.} El nRF52840 incluye un periférico RNG basado en ruido térmico, con corrección de sesgo. Se evaluó también una fuente análoga a la de AVR (el RTC alimentado por el oscilador LFRC de 32.768 kHz contra el contador de ciclos), pero su min-entropía resultó baja (Sección~\ref{sec:res_fuentes}), y se prefirió el periférico RNG, que la variante IoT usa como \texttt{JitterSource}.
+
+\section{Arnés de evaluación}
+\label{sec:arnes}
+
+El arnés se construyó antes de cualquier optimización, con una premisa: una variante más rápida que pierde entropía de forma silenciosa es peor que no tener variante. Su núcleo es el registro \texttt{candidates}, una lista de todas las configuraciones bajo prueba. Hoy contiene cuatro: la referencia con \texttt{xorshift128+} y con NEXT\_X48, cada una en forma cruda y acondicionada con SHA-256. Cinco \textit{crates} responden, cada uno, a una pregunta sobre todos los candidatos, y escriben su respuesta en JSON:
+
+\begin{itemize}
+    \item \texttt{stats} genera muestras de al menos 1\,000\,000 de bytes y ejecuta el nivel 1 (cinco pruebas nativas, con funciones matemáticas verificadas contra los ejemplos resueltos de SP 800-22) y el nivel 2 (ENT, \texttt{ea\_iid}, \texttt{ea\_non\_iid} y \texttt{assess}). Para SP 800-22, el número de flujos se deriva del tamaño real de la muestra (8 flujos de $10^6$ bits por cada megabyte).
+    \item \texttt{bench} mide con \textit{Criterion} el rendimiento sostenido, la latencia por llamada y el tiempo hasta el primer byte.
+    \item \texttt{footprint} mide ciclos por llamada, y el tamaño de cada ejecutable de \texttt{qpp-rng-firmware} con \texttt{cargo size} y \texttt{cargo bloat}. Hay un ejecutable por candidato para que el enlazador elimine el código de los demás.
+    \item \texttt{differential} verifica el determinismo de cada configuración frente a un reloj simulado, la paridad de comportamiento entre candidatos y la ausencia de pánicos mediante \textit{proptest} para $1 \leq N \leq 8$.
+    \item \texttt{report} une los resultados por nombre de candidato y genera una tabla comparativa en Markdown y CSV.
+\end{itemize}
+
+El orquestador \texttt{xtask} ejecuta la secuencia completa con \texttt{cargo xtask compare}. Varias fallas del propio arnés se encontraron al probarlo contra las herramientas reales y se corrigieron; por ejemplo, el orden exacto de las seis respuestas que espera el menú interactivo de \texttt{assess}, la copia de las plantillas que necesita la prueba \textit{NonOverlappingTemplate} y la conservación del veredicto de las pruebas IID de \texttt{ea\_iid}, que antes se descartaba. La suite del espacio de trabajo supera 118 pruebas, y una adicional se ignora por defecto.
+
+\section{\textit{Firmware} de pruebas sobre hardware}
+\label{sec:hil}
+
+El arnés del anfitrión no puede detectar el modo de falla principal de este trabajo, porque la salida determinística de la referencia supera las pruebas estadísticas. Para eso se construyó un \textit{firmware} de pruebas para AVR y para el nRF52840, con tres modos seleccionados en tiempo de compilación (Tabla~\ref{tab:modos_hil}). Todos transmiten por UART a 115\,200 baudios una línea de encabezado que comienza con \texttt{QPPHIL}, seguida de registros formados por un byte de sincronización (\texttt{0xA5}) y dos enteros de 32 bits en orden \textit{little-endian}. El código común a ambas placas (el protocolo y el ciclo completo del modo IoT) vive en un \textit{crate} compartido.
+
+\begin{table}[H]
+\centering
+\caption{Modos del \textit{firmware} de pruebas}
+\label{tab:modos_hil}
+\begin{tabularx}{\textwidth}{@{}L{0.20\textwidth}L{0.38\textwidth}Y@{}}
+\toprule
+\textbf{Modo} & \textbf{Registros transmitidos} & \textbf{Uso} \\
+\midrule
+Traza de referencia & $n_p$ y $\Delta t$ de cada ciclo de la referencia & Repetibilidad entre reinicios (E1) \\
+Fuente cruda & Muestra de la fuente física (y byte del RNG en el nRF52840) & Estimación con SP 800-90B (E2) \\
+IoT & 4 bytes de salida de \texttt{qpp-rng-iot} y los ciclos que tomaron & Rendimiento y pruebas de la salida (E3) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+En el anfitrión, un programa de captura abre el puerto serie (lo que reinicia una placa Arduino), valida el encabezado y la sincronización de cada registro y escribe los registros y un archivo de metadatos; otro programa convierte los registros en flujos de bytes para las herramientas del NIST. Para las capturas largas se escribió un controlador que captura bloques de 20\,000 registros, reintenta un bloque fallido y se detiene ante una falla de las pruebas de salud.
+
+\section{Cifrado autenticado: ASCON-IoT}
+\label{sec:ascon_iot}
+
+El \textit{crate} \texttt{ascon-iot} envuelve, sin modificar su comportamiento criptográfico, la implementación de Ascon-AEAD128 de RustCrypto \cite{RustCryptoAEADs}, fijada en una revisión específica. Expone cifrado y descifrado autenticados en el mismo búfer (sin memoria dinámica), con clave de 128 bits, \textit{nonce} de 128 bits y etiqueta de 128 bits, y dos funciones que obtienen material aleatorio de cualquier \texttt{rand\_core::Rng}: \texttt{generate\_key} y \texttt{generate\_random\_nonce}. El repositorio se mantiene desacoplado del generador, de modo que el cifrado pueda validarse contra los vectores oficiales sin que intervenga QPP-RNG. QPP-RNG solo aparece en una prueba de integración, que lo usa para producir la clave y el \textit{nonce}, cifra un mensaje con datos asociados y verifica el descifrado.
+
+\section{Integración: QPP-IoT}
+\label{sec:qpp_iot}
+
+La fachada \texttt{qpp-iot} combina los dos repositorios anteriores en un solo tipo, \texttt{QppEntropy}, que construye la tubería completa de la Figura~\ref{fig:tuberia}. Quien la usa entrega una fuente física y la min-entropía acreditada por muestra, y recibe un \texttt{rand\_core::Rng} listo para generar claves y \textit{nonces}.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    font=\small,
+    caja/.style={draw, rounded corners=2pt, align=center, minimum height=11mm, inner sep=3pt, text width=22mm},
+    etiqueta/.style={font=\scriptsize},
+    flecha/.style={-{Stealth[length=2mm]}, thick}
+]
+\node[caja] (src) {\texttt{JitterSource}\\(placa)};
+\node[caja, right=13mm of src] (health) {Pruebas de salud\\RCT + APT};
+\node[caja, right=13mm of health] (qpp) {\texttt{QppRngIot}\\4 caminatas\\$N = 6$};
+\node[caja, right=13mm of qpp] (sha) {SHA-256\\64 B $\rightarrow$ 32 B};
+\node[caja, below=12mm of sha, text width=28mm] (ascon) {Ascon-AEAD128\\clave y \textit{nonce}};
+\draw[flecha] (src) -- node[etiqueta, above]{muestras} (health);
+\draw[flecha] (health) -- (qpp);
+\draw[flecha] (qpp) -- node[etiqueta, above]{bytes} (sha);
+\draw[flecha] (sha) -- node[etiqueta, right]{\texttt{Rng}} (ascon);
+\end{tikzpicture}
+\caption{Tubería de \texttt{QppEntropy}, desde la fuente física hasta Ascon-AEAD128.}
+\label{fig:tuberia}
+\end{figure}
+
+El \textit{crate} \texttt{qpp-iot-boards} provee una fuente por placa, cada una detrás de una característica de compilación: \texttt{avr-wdt} (Arduino Uno, Nano y Mega 2560), \texttt{nrf52840} y \texttt{mock}, un generador determinístico \emph{sin entropía}, útil únicamente para probar la tubería en el anfitrión. Activar la característica de una placa al compilar para otra arquitectura produce un error de compilación. Como el acondicionador solo acepta una fuente infalible, \texttt{QppEntropy} usa el envoltorio que entra en pánico ante una falla de salud. Por ello, la configuración recomendada es \texttt{panic = \textquotedbl{}abort\textquotedbl{}}, y el pánico debe tratarse como ``reiniciar y volver a sembrar'', nunca como ``continuar''.
+
+En AVR, la tubería completa solo cabe en la memoria Flash si se usan las variantes compactas de los \textit{backends} de SHA-256 y Ascon, que se seleccionan con banderas de compilación (Sección~\ref{sec:res_huella}). Dado que una librería no puede fijar esas banderas por su cuenta, toda aplicación para AVR debe incluirlas en su configuración de compilación; el repositorio incluye un \textit{script} que lo hace y que falla si la imagen deja de caber. Si la aplicación también descifra, debe compilarse además con \texttt{opt-level = \textquotedbl{}z\textquotedbl{}}; de lo contrario, la imagen no cabe en un ATmega328P (Sección~\ref{sec:res_huella}). El repositorio incluye también el \textit{firmware} de la prueba de extremo a extremo y el \textit{script} que verifica su informe contra \texttt{ascon-c} (Sección~\ref{sec:res_e2e}).

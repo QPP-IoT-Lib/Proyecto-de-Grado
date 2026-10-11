@@ -79,7 +79,7 @@ La frescura garantiza que un mensaje corresponde a una ejecución reciente del p
 
 En criptografía simétrica moderna, un nonce es un valor que debe ser único dentro de un contexto determinado. No necesariamente tiene que ser secreto, pero su reutilización bajo una misma clave puede comprometer la seguridad del esquema. Por esta razón, la generación y administración de nonces es un componente esencial dentro de la arquitectura criptográfica.
 
-\subsection{Impredicibilidad}
+\subsection{Impredecibilidad}
 
 La impredecibilidad se refiere a la incapacidad de un adversario para anticipar valores criptográficos futuros, tales como claves, semillas, nonces aleatorios o desafíos de autenticación. Esta propiedad depende directamente de la calidad de la fuente de entropía utilizada por el sistema.
 
@@ -444,8 +444,8 @@ Rust permite referencias inmutables y referencias mutables bajo reglas estrictas
 
 \subsection{Ventajas para criptografía ligera}
 
-Rust resulta atractivo para esta investigación por varias razones, pues permite escribir código de bajo nivel con desempeño cercano a C/C++, reduce errores de memoria frecuentes en software crítico, soporta compilación para arquitecturas embebidas, facilita la construcción de bibliotecas modulares, permite controlar dependencias y características mediante el manejador de paquetes \textit{Cargo}, y puede utilizarse en ambientes donde no se utiliza la librería estándar \textit{\_std}, lo cual es relevante para el desarrollo en microcontroladores.
-En el contexto de este proyecto, Rust se utilizará para implementar una librería criptográfica ligera que integre QPP-RNG como fuente de entropía y permita comparaciones experimentales frente a componentes de referencia.
+Rust resulta atractivo para esta investigación por varias razones, pues permite escribir código de bajo nivel con desempeño cercano a C/C++, reduce errores de memoria frecuentes en software crítico, soporta compilación para arquitecturas embebidas, facilita la construcción de bibliotecas modulares, permite controlar dependencias y características mediante el manejador de paquetes \textit{Cargo}, y puede utilizarse en ambientes sin la librería estándar (\texttt{no\_std}), lo cual es relevante para el desarrollo en microcontroladores.
+En el contexto de este proyecto, Rust se utilizó para implementar una librería criptográfica ligera que integra QPP-RNG como fuente de entropía y permite comparaciones experimentales frente a componentes de referencia (Capítulo~\ref{cap:diseno}).
 
 \section{Métricas de evaluación experimental}
 
@@ -525,4 +525,4 @@ Posteriormente, se describieron los fundamentos de AEAD y ASCON como mecanismo d
 
 Finalmente, se introdujeron los fundamentos de QPP, QPP-RNG y Rust. QPP aporta un marco conceptual basado en espacios de permutaciones, crecimiento factorial y no conmutatividad, mientras que QPP-RNG propone aprovechar fuentes software de variabilidad para generar aleatoriedad sin hardware especializado. Rust, por su parte, ofrece un entorno de implementación adecuado para construir una librería segura, modular y portable.
 
-Con base en este marco conceptual, el siguiente capítulo presentará el diseño de la solución propuesta, incluyendo la arquitectura de la librería, los módulos principales, el flujo de generación de entropía, la integración con criptografía ligera y el diseño experimental que permitirá evaluar la hipótesis de investigación.
+Con base en este marco conceptual, el Capítulo~\ref{cap:metodologia} presenta la metodología y el diseño experimental con los que se evaluó la hipótesis de investigación, y el Capítulo~\ref{cap:diseno} describe la solución construida: la arquitectura de la librería, sus módulos principales, el flujo de generación de entropía y la integración con criptografía ligera.

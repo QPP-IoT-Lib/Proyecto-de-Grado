@@ -6,26 +6,25 @@
 \cleardoublepage
 \tituloPreliminar{Lista de Símbolos y abreviaturas}
 
-Esta sección es opcional, dado que existen disciplinas que no manejan símbolos
-y/o abreviaturas. Se incluyen símbolos generales (con letras latinas y griegas),
-subíndices, superíndices y abreviaturas (incluir sólo las clases de símbolos que
-se utilicen). Cada una de estas listas debe estar ubicada en orden alfabético de
-acuerdo con la primera letra del símbolo (en esta plantilla, el título del tipo
-de símbolo esta en letra Arial de 14 puntos y en negrilla). Para escribir la
-definición en las tablas, se puede usar la herramienta de referencia cruzada.
-A continuación se presentan algunos ejemplos.
-
 {\bfseries\fontsize{14}{16}\selectfont Símbolos con letras latinas\par}
 \nopagebreak
 \begin{center}
 \interlineadoSencillo
 \begin{tabular}{@{}p{2.2cm}p{5.0cm}p{2.6cm}p{4.2cm}@{}}
-\textbf{Símbolo} & \textbf{Término} & \textbf{Unidad SI} & \textbf{Definición}\\[1ex]
-$A$        & Área                                  & m$^2$                    & $\iint dx\,dy$\\[1ex]
-$A_{BET}$  & Área interna del sólido               & $\dfrac{m^{2}}{g}$       & ver DIN ISO 9277\\[1ex]
-$A_{g}$    & Área transversal de la fase gaseosa   & m$^2$                    & Ec. 3.2\\[1ex]
-$A_{s}$    & Área transversal de la carga a granel & m$^2$                    & Ec. 3.6\\[1ex]
-$a$        & Coeficiente                           & 1                        & Tabla 3-1\\
+\textbf{Símbolo} & \textbf{Término} & \textbf{Unidad} & \textbf{Definición}\\[1ex]
+$C_{\text{APT}}$ & Umbral de la prueba de proporción adaptativa & muestras & Sección~\ref{sec:variante_iot}\\[1ex]
+$C_{\text{RCT}}$ & Umbral de la prueba de conteo de repeticiones & muestras & Sección~\ref{sec:variante_iot}\\[1ex]
+$H$ & Min-entropía acreditada a una muestra & bits & Sección~\ref{sec:variante_iot}\\[1ex]
+$H(X)$ & Entropía de Shannon & bits & Sección~\ref{sec:aleatoriedad_entropia}\\[1ex]
+$H_{\infty}(X)$ & Min-entropía & bits & Sección~\ref{sec:aleatoriedad_entropia}\\[1ex]
+$k$ & Resolución del temporizador & ticks & Ec.~\eqref{eq:normalizacion}\\[1ex]
+$m$ & Ciclos de convergencia por byte (sobremuestreo) & 1 & Sección~\ref{sec:referencia}\\[1ex]
+$N$ & Número de elementos de la permutación & 1 & Sección~\ref{sec:referencia}\\[1ex]
+$n_p$ & \textit{Pads} generados hasta volver a la identidad & 1 & Sección~\ref{sec:referencia}\\[1ex]
+$p_7$ & Probabilidad de que el bit 7 valga 1 & 1 & Ec.~\eqref{eq:sesgo_bit7}\\[1ex]
+$S_N$ & Grupo simétrico de grado $N$ & -- & Sección~\ref{sec:referencia}\\[1ex]
+$s$ & Semilla del generador & bits & Sección~\ref{sec:referencia}\\[1ex]
+$W$ & Ventana de la prueba de proporción adaptativa & muestras & Sección~\ref{sec:variante_iot}\\
 \end{tabular}
 \end{center}
 
@@ -34,34 +33,11 @@ $a$        & Coeficiente                           & 1                        & 
 \begin{center}
 \interlineadoSencillo
 \begin{tabular}{@{}p{2.2cm}p{5.0cm}p{2.6cm}p{4.2cm}@{}}
-\textbf{Símbolo} & \textbf{Término} & \textbf{Unidad SI} & \textbf{Definición}\\[1ex]
-$\alpha_{BET}$ & Factor de superficie                  & $\dfrac{m^{2}}{g}$ & $(w_{F,waf})(A_{BET})$\\[1ex]
-$\beta_{i}$    & Grado de formación del componente $i$ & 1                  & $\dfrac{m_{j}}{m_{bm\,Q}}$\\[1ex]
-$\gamma$       & Wandhafreibwinkel (Stahlblech)        & 1                  & Sección 3.2\\[1ex]
-$\varepsilon$  & Porosidad de la partícula             & 1                  & $1-\dfrac{\rho_{s}}{\rho_{W}}$\\[1ex]
-$\eta$         & mittlere Bettneigunswinkel (Stürzen)  & 1                  & Figura 3-1\\
-\end{tabular}
-\end{center}
-
-{\bfseries\fontsize{14}{16}\selectfont Subíndices\par}
-\nopagebreak
-\begin{center}
-\interlineadoSencillo
-\begin{tabular}{@{}p{3.5cm}p{10.5cm}@{}}
-\textbf{Subíndice} & \textbf{Término}\\[1ex]
-bm & Materia orgánica\\[1ex]
-DR & Dubinin-Radushkevich\\[1ex]
-E  & Experimental\\
-\end{tabular}
-\end{center}
-
-{\bfseries\fontsize{14}{16}\selectfont Superíndices\par}
-\nopagebreak
-\begin{center}
-\interlineadoSencillo
-\begin{tabular}{@{}p{3.5cm}p{10.5cm}@{}}
-\textbf{Superíndice} & \textbf{Término}\\[1ex]
-n & Exponente, potencia\\
+\textbf{Símbolo} & \textbf{Término} & \textbf{Unidad} & \textbf{Definición}\\[1ex]
+$\alpha$ & Nivel de significancia o tasa de falsos positivos & 1 & Sección~\ref{sec:evaluacion_estadistica}\\[1ex]
+$\delta$ & Tiempo normalizado de un ciclo & 1 & Ec.~\eqref{eq:normalizacion}\\[1ex]
+$\Delta t$ & Duración de un ciclo de convergencia & ticks & Sección~\ref{sec:referencia}\\[1ex]
+$\sigma$ & Desviación estándar & ciclos & Sección~\ref{sec:res_fuentes}\\
 \end{tabular}
 \end{center}
 
@@ -71,8 +47,34 @@ n & Exponente, potencia\\
 \interlineadoSencillo
 \begin{tabular}{@{}p{3.5cm}p{10.5cm}@{}}
 \textbf{Abreviatura} & \textbf{Término}\\[1ex]
-1.\textit{LT} & Primera ley de la termodinámica\\[1ex]
-\textit{DF}   & Dimension fundamental\\[1ex]
-\textit{RFF}  & Racimos de fruta fresca\\
+ACVP & \textit{Automated Cryptographic Validation Protocol}\\[1ex]
+AEAD & \textit{Authenticated Encryption with Associated Data}\\[1ex]
+AES & \textit{Advanced Encryption Standard}\\[1ex]
+APT & \textit{Adaptive Proportion Test}, prueba de proporción adaptativa\\[1ex]
+ARX & \textit{Addition, Rotation, XOR}\\[1ex]
+CAVP & \textit{Cryptographic Algorithm Validation Program}\\[1ex]
+CSPRNG & \textit{Cryptographically Secure Pseudo Random Number Generator}\\[1ex]
+DRBG & \textit{Deterministic Random Bit Generator}\\[1ex]
+HIL & \textit{Hardware-in-the-loop}, pruebas sobre hardware\\[1ex]
+IID & Independiente e idénticamente distribuido\\[1ex]
+IoT & \textit{Internet of Things}, Internet de las cosas\\[1ex]
+KAT & \textit{Known Answer Test}, prueba de respuesta conocida\\[1ex]
+LFRC & \textit{Low-Frequency RC oscillator}\\[1ex]
+LTO & \textit{Link-Time Optimization}\\[1ex]
+LWC & \textit{Lightweight Cryptography}, criptografía ligera\\[1ex]
+NIST & \textit{National Institute of Standards and Technology}\\[1ex]
+OTP & \textit{One-Time Pad}\\[1ex]
+PRNG & \textit{Pseudo Random Number Generator}\\[1ex]
+QPP & \textit{Quantum Permutation Pad}\\[1ex]
+QPP-RNG & \textit{Quantum Permutation Pad Random Number Generator}\\[1ex]
+RCT & \textit{Repetition Count Test}, prueba de conteo de repeticiones\\[1ex]
+RNG & \textit{Random Number Generator}\\[1ex]
+RTC & \textit{Real-Time Counter}\\[1ex]
+SHA & \textit{Secure Hash Algorithm}\\[1ex]
+SP & \textit{Special Publication} del NIST\\[1ex]
+SPN & \textit{Substitution-Permutation Network}\\[1ex]
+STS & \textit{Statistical Test Suite} del NIST (SP 800-22)\\[1ex]
+TRNG & \textit{True Random Number Generator}\\[1ex]
+UART & \textit{Universal Asynchronous Receiver-Transmitter}\\
 \end{tabular}
 \end{center}
