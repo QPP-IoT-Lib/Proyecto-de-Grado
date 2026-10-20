@@ -22,7 +22,7 @@ que es la Ecuación~\eqref{eq:sesgo_xor}. Con $q = 1/120$ ($N = 5$), $p_7 = 0.25
 
 \section{Umbrales de las pruebas de salud}
 
-La Tabla~\ref{tab:umbrales_salud} lista los umbrales que usa \texttt{qpp-rng-iot} según la min-entropía acreditada, con $\alpha = 2^{-20}$ y una ventana de $W = 512$ muestras para la APT. Los valores se calcularon de forma exacta con la distribución binomial. Un valor acreditado no tabulado se redondea hacia abajo al valor más cercano de la tabla, lo que solo puede hacer las pruebas más estrictas; un valor de 0 se trata como medio bit.
+La Tabla~\ref{tab:umbrales_salud} lista los umbrales que usa \texttt{qpp-rng-iot} según la min-entropía acreditada, con $\alpha = 2^{-20}$ y una ventana de $W = 512$ muestras para la APT. Los valores se calcularon de forma exacta con la distribución binomial.Un valor acreditado no tabulado se redondea hacia abajo al valor más cercano de la tabla, y uno mayor que 4 se trata como 4. Declarar menos entropía de la que la fuente tiene eleva los umbrales, de modo que las pruebas toleran más repeticiones y resultan menos sensibles que las calculadas para el valor real; un valor de 0 se trata como medio bit.
 
 \begin{table}[H]
 \centering
@@ -36,8 +36,7 @@ La Tabla~\ref{tab:umbrales_salud} lista los umbrales que usa \texttt{qpp-rng-iot
 1 & 21 & 311 \\
 2 & 11 & 177 \\
 3 & 8 & 103 \\
-4 o más & 6 & 62 \\
-\bottomrule
+4 (máximo tabulado) & 6 & 62 \\\bottomrule
 \end{tabular}
 \end{table}
 

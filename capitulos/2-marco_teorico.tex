@@ -12,7 +12,7 @@ La tesis se ubica en la intersección entre tres áreas principales: criptograf�
 
 Un dispositivo IoT con recursos restringidos puede definirse como un sistema computacional embebido diseñado para ejecutar una función específica, generalmente mediante sensores, actuadores o módulos de comunicación, bajo limitaciones severas de memoria, capacidad de procesamiento, almacenamiento y consumo energético \cite{Seyhan2022ClassificationTaxonomy,Dhanda2020LightweightIoT}. A diferencia de un computador convencional, estos dispositivos no están diseñados para ejecutar múltiples aplicaciones arbitrarias, sino para cumplir tareas concretas dentro de una arquitectura distribuida.
 
-Las restricciones más relevantes para esta investigación se relacionan con las limitaciones propias de los dispositivos IoT. En primer lugar, la memoria RAM disponible suele ser de apenas unos pocos kilobytes, lo que restringe el tamaño de los buffers, los estados criptográficos y las estructuras auxiliares que pueden emplearse. Asimismo, la memoria Flash es limitada, por lo que el firmware debe mantenerse lo más compacto posible y las bibliotecas criptográficas no pueden depender de implementaciones excesivamente pesadas. A ello se suma la reducida capacidad de procesamiento de estos dispositivos, ya que la baja frecuencia del procesador y la ausencia de unidades especializadas pueden incrementar el tiempo necesario para ejecutar operaciones criptográficas. También existen importantes restricciones energéticas, debido a que muchos dispositivos funcionan con baterías y deben operar durante largos periodos de tiempo sin requerir mantenimiento. Finalmente, la conectividad suele estar limitada por los protocolos de comunicación utilizados, los cuales pueden imponer restricciones en el ancho de banda, el tamaño de los paquetes, la latencia y el consumo energético asociado a cada transmisión.
+Las restricciones más relevantes para esta investigación se relacionan con las limitaciones propias de los dispositivos IoT. En primer lugar, la memoria RAM disponible suele ser de apenas unos pocos kilobytes, lo que restringe el tamaño de los buffers, los estados criptográficos y las estructuras auxiliares que pueden utilizarse. Asimismo, la memoria Flash es limitada, por lo que el firmware debe mantenerse lo más compacto posible y las bibliotecas criptográficas no pueden depender de implementaciones excesivamente pesadas. A ello se suma la reducida capacidad de procesamiento de estos dispositivos, ya que la baja frecuencia del procesador y la ausencia de unidades especializadas pueden incrementar el tiempo necesario para ejecutar operaciones criptográficas. También existen importantes restricciones energéticas, debido a que muchos dispositivos funcionan con baterías y deben operar durante largos periodos de tiempo sin requerir mantenimiento. Finalmente, la conectividad suele estar limitada por los protocolos de comunicación utilizados, los cuales pueden imponer restricciones en el ancho de banda, el tamaño de los paquetes, la latencia y el consumo energético asociado a cada transmisión.
 
 Estas restricciones condicionan directamente el diseño criptográfico. Un algoritmo seguro en teoría puede resultar poco práctico si requiere demasiada memoria, si incrementa significativamente el tiempo de respuesta o si reduce la vida útil de la batería. Por esta razón, la seguridad en IoT debe evaluarse como un equilibrio entre robustez criptográfica y viabilidad computacional.
 
@@ -159,7 +159,7 @@ Por esta razón, la evaluación de una fuente de entropía no debe limitarse a c
 \section{Generadores de números aleatorios}
 \label{sec:generadores_rng}
 
-Los generadores de números aleatorios pueden clasificarse en generadores verdaderos, generadores pseudoaleatorios y generadores criptográficamente seguros. En sistemas reales, estos mecanismos suelen combinarse: una fuente no determinística produce entropía inicial, luego un acondicionador o extractor mejora sus propiedades estadísticas, y finalmente un generador determinístico criptográficamente seguro expande la semilla para producir más bits.
+Los generadores de números aleatorios pueden clasificarse en generadores verdaderos, generadores pseudoaleatorios y generadores criptográficamente seguros. En sistemas reales, estos mecanismos suelen combinarse. Una fuente no determinística produce entropía inicial, luego un acondicionador o extractor mejora sus propiedades estadísticas, y finalmente un generador determinístico criptográficamente seguro expande la semilla para producir más bits.
 
 \subsection{\textit{True Random Number Generators}}
 
@@ -231,7 +231,7 @@ NIST SP 800-90B se enfoca en la evaluación de fuentes de entropía \cite{Turan2
 
 La metodología distingue entre fuentes independientes e idénticamente distribuidas y fuentes no independientes. Esta distinción es importante porque muchas fuentes reales, especialmente aquellas basadas en eventos físicos o temporales, pueden presentar dependencia entre muestras.
 
-La salida principal del análisis es una estimación de min-entropía por muestra. Esta estimación permite determinar cuántos bits de incertidumbre pueden atribuirse de manera conservadora a la fuente. En el contexto de QPP-RNG, esta métrica resulta central para determinar si la salida cruda o acondicionada puede utilizarse como material criptográfico.
+La salida principal del análisis es una estimación de min-entropía por muestra. Esta estimación permite determinar cuántos bits de incertidumbre pueden atribuirse de manera conservadora a la fuente. En el contexto de QPP-RNG, esta métrica resulta central para determinar cuánta entropía aporta la fuente de ruido (en la variante propuesta, un oscilador físico); no se aplica a la salida acondicionada, cuya entropía se deriva de la entrada y de la función de acondicionamiento.
 
 \subsection{ENT}
 
@@ -272,7 +272,7 @@ Los datos asociados $A$ no se cifran, pero sí se autentican. Esto permite prote
 
 El nonce es un valor que debe ser único para cada operación bajo una misma clave. En muchos esquemas AEAD, reutilizar un nonce puede comprometer gravemente la seguridad. Por esta razón, la generación y administración de nonces es una tarea crítica.
 
-Existen dos estrategias generales. Los \textit{nonces} determinísticos, que se generan mediante contadores o identificadores de sesión, y los \textit{nonces} aleatorios, que se generan mediante una fuente de aleatoriedad.
+Existen dos estrategias generales. Los \textit{nonces} determinísticos, que se generan mediante contadores o identificadores de sesión y los \textit{nonces} aleatorios, que se generan mediante una fuente de aleatoriedad.
 
 Los \textit{nonces} determinísticos reducen la dependencia de la fuente aleatoria, pero requieren almacenamiento persistente y protección contra reinicios o desincronización. Los \textit{nonces} aleatorios simplifican algunos diseños, pero dependen de un RNG robusto. En ambos casos, la generación de entropía continúa siendo relevante para claves y semillas.
 

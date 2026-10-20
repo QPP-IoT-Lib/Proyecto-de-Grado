@@ -4,11 +4,11 @@
 \chapter{Metodología}
 \label{cap:metodologia}
 
-El desarrollo del proyecto se divide en tres fases: diseño, implementación y validación. Las tres no se ejecutaron de forma estrictamente secuencial, sino como ciclos cortos: cada resultado de validación que contradecía una hipótesis de diseño (por ejemplo, que el \textit{jitter} de ejecución existe en cualquier procesador) dio lugar a un cambio de diseño, a una nueva implementación y a una nueva ronda de pruebas. Este capítulo describe el enfoque general, el objetivo de cada fase, las plataformas utilizadas, los experimentos realizados y los criterios con los que se interpretaron sus resultados. El detalle técnico de lo construido se presenta en el Capítulo~\ref{cap:diseno}, y los resultados en el Capítulo~\ref{cap:resultados}.
+El desarrollo del proyecto se divide en tres fases: diseño, implementación y validación. Las tres no se ejecutaron de forma estrictamente secuencial, sino como ciclos cortos: cada resultado de validación que contradecía una hipótesis de diseño (por ejemplo, que el \textit{jitter} de ejecución existe en cualquier procesador) dio lugar a un cambio de diseño, a una nueva implementación y a una nueva ronda de pruebas. Este capítulo describe el enfoque general, el objetivo de cada fase, las plataformas utilizadas, los experimentos realizados y los criterios con los que se interpretaron sus resultados. El detalle técnico de lo construido se presenta en el Capítulo~\ref{cap:diseno} y los resultados en el Capítulo~\ref{cap:resultados}.
 
 \section{Enfoque de la investigación}
 
-La investigación es aplicada, de carácter experimental y cuantitativo. Su pregunta central es si una adaptación de QPP-RNG puede servir como fuente de entropía para criptografía ligera en dispositivos IoT con recursos restringidos. Esa pregunta se descompuso en cuatro preguntas verificables:
+La investigación es aplicada de carácter experimental y cuantitativo. Su pregunta central es si una adaptación de QPP-RNG puede servir como fuente de entropía para criptografía ligera en dispositivos IoT con recursos restringidos. Esa pregunta se descompuso en cuatro preguntas verificables:
 
 \begin{enumerate}
     \item ¿Reproduce una implementación fiel de QPP-RNG, escrita en Rust, el comportamiento estadístico reportado en la literatura \cite{Vrana2025RawEvaluation}?
@@ -17,21 +17,21 @@ La investigación es aplicada, de carácter experimental y cuantitativo. Su preg
     \item ¿Puede integrarse la salida del generador con un esquema de cifrado autenticado estándar (Ascon-AEAD128 \cite{Turan2025Ascon-BasedFunctions}) dentro de los límites de memoria de un microcontrolador de 8 bits?
 \end{enumerate}
 
-Un principio guía de todo el trabajo es que una fuente de entropía no se valida observando únicamente su salida. Como se discutió en la Sección~\ref{sec:evaluacion_estadistica}, superar NIST SP 800-22 o ENT es una condición necesaria, pero no suficiente: un generador determinístico bien diseñado también las supera. Por ello, cada afirmación sobre entropía se apoyó en tres tipos de evidencia: (i) la comparación de capturas independientes desde el mismo estado inicial, (ii) la estimación de min-entropía de la fuente cruda con NIST SP 800-90B \cite{Turan2018RecommendationGeneration}, y (iii) las pruebas estadísticas de la salida.
+Un principio guía de todo el trabajo es que una fuente de entropía no se valida observando únicamente su salida. Como se discutió en la Sección~\ref{sec:evaluacion_estadistica}, superar NIST SP 800-22 o ENT es una condición necesaria, pero no suficiente. Un generador determinístico bien diseñado también las supera. Por ello, cada afirmación sobre entropía se apoyó en tres tipos de evidencia: (i) la comparación de capturas independientes desde el mismo estado inicial, (ii) la estimación de min-entropía de la fuente cruda con NIST SP 800-90B \cite{Turan2018RecommendationGeneration} y (iii) las pruebas estadísticas de la salida.
 
 \section{Fase de diseño}
 
-La fase de diseño partió de la propuesta de QPP-RNG \cite{Kuang2025QPP-RNG:Randomness,Kuang2025IID-BasedJitter} y de su evaluación multiplataforma \cite{Vrana2025RawEvaluation}, y tuvo tres objetivos.
+La fase de diseño partió de la propuesta de QPP-RNG \cite{Kuang2025QPP-RNG:Randomness,Kuang2025IID-BasedJitter} y de su evaluación multiplataforma \cite{Vrana2025RawEvaluation} y tuvo tres objetivos.
 
-El primero fue fijar una \textbf{implementación de referencia} que sirviera como verdad base. Dado que la publicación describe el mecanismo de forma narrativa y no publica pseudocódigo ni código fuente, cada decisión de implementación que el artículo deja abierta (la forma de la caminata de convergencia, la combinación de los ciclos de sobremuestreo, la evolución de la semilla y los generadores internos) se documentó explícitamente junto al código, para que pudiera contrastarse con el artículo de forma independiente.
+El primero fue fijar una \textbf{implementación de referencia} que sirviera como base. Dado que la publicación describe el mecanismo de forma narrativa y no publica pseudocódigo ni código fuente, cada decisión de implementación que el artículo deja abierta (la forma de la caminata de convergencia, la combinación de los ciclos de sobremuestreo, la evolución de la semilla y los generadores internos) se documentó explícitamente junto al código, para que pudiera contrastarse con el artículo de forma independiente.
 
-El segundo fue definir una \textbf{arquitectura modular} que separara las responsabilidades que la literatura suele presentar juntas: la medición del tiempo, el generador de referencia, la variante optimizada para IoT, el acondicionamiento criptográfico y el cifrado autenticado. La separación tiene un propósito metodológico: la fuente cruda, que es lo que SP 800-90B caracteriza, debe poder evaluarse sin modificaciones, y cada variante debe poder compararse contra la referencia con las mismas herramientas.
+El segundo fue definir una \textbf{arquitectura modular} que separara las responsabilidades que la literatura suele presentar juntas, es decir, la medición del tiempo, el generador de referencia, la variante optimizada para IoT, el acondicionamiento criptográfico y el cifrado autenticado. La separación tiene un propósito metodológico. La fuente cruda, que es lo que SP 800-90B caracteriza, debe poder evaluarse sin modificaciones y cada variante debe poder compararse contra la referencia con las mismas herramientas.
 
-El tercero fue definir una \textbf{matriz de evaluación} común para todas las variantes. Las dimensiones de esa matriz se tomaron del Marco teórico (Tabla~\ref{tab:metricas_evaluacion}) y se ampliaron con dos dimensiones que resultaron decisivas: la salud de la fuente de \textit{jitter} en cada plataforma y la reproducibilidad entre reinicios. La Tabla~\ref{tab:matriz_evaluacion} resume la matriz.
-
+El tercero fue definir una \textbf{matriz de evaluación} común para los candidatos del arnés. Las dimensiones de esa matriz se tomaron del Marco teórico (Tabla~\ref{tab:metricas_evaluacion}) y se ampliaron con dos dimensiones que resultaron decisivas: la salud de la fuente de \textit{jitter} en cada plataforma y la reproducibilidad entre reinicios. La Tabla~\ref{tab:matriz_evaluacion} resume la matriz.
+ Las herramientas de comparación del computador anfitrión (pruebas estadísticas, rendimiento, huella y pruebas diferenciales) cubren los candidatos registrados en el arnés, es decir, la referencia y su versión acondicionada. La variante IoT, cuya entropía solo existe en las placas, se evaluó con sus propias pruebas unitarias y con las pruebas sobre hardware.
 \begin{table}[H]
 \centering
-\caption{Matriz de evaluación aplicada a cada variante del generador}
+\caption{Matriz de evaluación del generador}
 \label{tab:matriz_evaluacion}
 \begin{tabularx}{\textwidth}{@{}L{0.27\textwidth}L{0.33\textwidth}Y@{}}
 \toprule
@@ -59,13 +59,13 @@ La implementación se realizó en Rust (edición 2024, versión mínima 1.97.1),
     \item \textbf{QPP-IoT}: la fachada que combina los dos anteriores y añade las fuentes de entropía específicas de cada placa.
 \end{itemize}
 
-Todo el código del camino de generación es \texttt{no\_std} (no depende de la biblioteca estándar ni de memoria dinámica), de modo que el mismo código compila para el computador anfitrión, para Cortex-M y para AVR. La implementación siguió un orden fijo, de modo que cada pieza nueva se probara sobre una base ya validada: primero los rasgos comunes y los temporizadores, luego la referencia, después el arnés de pruebas completo, más adelante el \textit{firmware} de pruebas sobre hardware y la variante IoT y, por último, la integración con Ascon.
+Todo el código del camino de generación es \texttt{no\_std} (no depende de la biblioteca estándar ni de memoria dinámica), de modo que el mismo código compila para el computador anfitrión, para Cortex-M y para AVR. La implementación siguió un orden fijo, de modo que cada pieza nueva se probara sobre una base ya validada: primero los rasgos comunes y los temporizadores, luego la referencia, después el arnés de pruebas completo, más adelante el \textit{firmware} de pruebas sobre hardware y la variante IoT y, por último, la integración con ASCON.
 
 \section{Fase de validación}
 
 \subsection{Plataformas}
 
-La Tabla~\ref{tab:plataformas} lista las plataformas utilizadas. Los tres microcontroladores representan dos extremos del IoT restringido: un núcleo AVR de 8 bits sin multiplicador de 64 bits ni divisor, y un Cortex-M4F de 32 bits con generador de números aleatorios en hardware. Los anfitriones sirven como control y como plataformas donde la referencia sí dispone de las fuentes de variabilidad que la literatura describe.
+La Tabla~\ref{tab:plataformas} lista las plataformas utilizadas. Los tres microcontroladores representan dos extremos del IoT restringido. Un núcleo AVR de 8 bits sin multiplicador de 64 bits ni divisor, y un Cortex-M4F de 32 bits con generador de números aleatorios en hardware. Los anfitriones sirven como control y como plataformas donde la referencia sí dispone de las fuentes de variabilidad que la literatura describe.
 
 \begin{table}[H]
 \centering
@@ -81,7 +81,7 @@ makerdiary nRF52840 MDK & nRF52840, Cortex-M4F, 64 MHz & Pruebas HIL \\
 Computador Apple Silicon & macOS, ARM64 & Desarrollo, arnés completo, control \\
 Raspberry Pi 4 Model B & Cortex-A72 ×4, 0.6--1.5 GHz, Debian 13 & Referencia en un anfitrión rápido \\
 Computador de escritorio & Intel Core Ultra 7 265KF, Windows 11 & Referencia en un anfitrión rápido, capturas largas \\
-Computador portátil & Intel Core i5-1135G7, WSL2 & Línea base de desempeño de Ascon \\
+Computador portátil & Intel Core i5-1135G7, WSL2 & Línea base de desempeño de ASCON \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -94,7 +94,7 @@ La validación se organizó en cinco niveles de costo creciente:
 
 \begin{enumerate}
     \item \textbf{Pruebas unitarias} de cada \textit{crate}, ejecutadas con \texttt{cargo test}.
-    \item \textbf{Pruebas diferenciales y basadas en propiedades}: determinismo de cada configuración frente a un reloj simulado, paridad de comportamiento entre candidatos y \textit{fuzzing} con \textit{proptest} para todos los anchos de permutación $N$ entre 1 y 8.
+    \item \textbf{Pruebas diferenciales y basadas en propiedades}: determinismo de cada configuración frente a un reloj simulado, paridad de comportamiento entre candidatos y \textit{fuzzing} con \textit{proptest} para los anchos de permutación $N \in \{1, 2, 5, 6, 8\}$ en \texttt{xorshift128+} y $N \in \{1, 5, 6\}$ en NEXT\_X48. La variante IoT no forma parte de estas pruebas y se verifica con sus propias pruebas unitarias.
     \item \textbf{Pruebas estadísticas de nivel 1}: cinco pruebas nativas en Rust (frecuencia monobit, rachas, $\chi^2$ de uniformidad de bytes con 255 grados de libertad, correlación serial y entropía de Shannon), con nivel de significancia $\alpha = 0.01$, ejecutadas sobre la muestra completa.
     \item \textbf{Pruebas estadísticas de nivel 2}: las herramientas de referencia del NIST (\texttt{ea\_iid}, \texttt{ea\_non\_iid} y \texttt{assess} de STS 2.1.2) y ENT \cite{Walker2008ENT:Program}, sobre muestras de al menos 1\,000\,000 de bytes, el tamaño mínimo que recomienda SP 800-90B.
     \item \textbf{Pruebas sobre hardware} (\textit{hardware-in-the-loop}, HIL): \textit{firmware} dedicado que transmite por UART al anfitrión los valores internos del generador o de la fuente física, para analizarlos con los niveles anteriores.
@@ -104,9 +104,9 @@ La validación se organizó en cinco niveles de costo creciente:
 
 Se diseñaron seis experimentos. Cada uno responde a una de las preguntas de investigación y produce datos que los demás reutilizan.
 
-\paragraph{E1. Determinismo de la referencia entre reinicios.} En cada microcontrolador se ejecutó la referencia con su configuración por defecto ($N = 5$, \texttt{xorshift128+}), pero con sobremuestreo 1, de modo que cada ciclo de convergencia enviara al anfitrión su par $(n_p, \Delta t)$. Como la salida por defecto es el XOR de cinco valores consecutivos de $n_p \bmod 256$, esta traza determina por completo la salida. El experimento consiste en reiniciar la placa varias veces con la misma semilla y comparar las trazas posición por posición. Si la fuente aporta entropía, las trazas deben diferir desde los primeros ciclos; si no, son idénticas. El computador anfitrión se usó como control.
+\paragraph{E1. Determinismo de la referencia entre reinicios.} En cada microcontrolador se ejecutó la referencia con su configuración por defecto ($N = 5$, \texttt{xorshift128+}), pero con sobremuestreo 1, de modo que cada ciclo de convergencia enviara al anfitrión su par $(n_p, \Delta t)$. Como la salida por defecto es el XOR de cinco valores consecutivos de $n_p \bmod 256$, esta traza determina por completo la salida. El experimento consiste en reiniciar la placa varias veces con la misma semilla y comparar las trazas posición por posición. Si la fuente aporta entropía, las trazas deben diferir desde los primeros ciclos, si no, son idénticas. El computador anfitrión se usó como control.
 
-\paragraph{E2. Caracterización de fuentes físicas independientes.} En cada microcontrolador se midió, en ciclos del reloj principal, el periodo de un oscilador físicamente independiente de la CPU: en AVR, la interrupción del perro guardián (\textit{watchdog}), alimentada por un oscilador RC de 128 kHz, con marcas de tiempo del Timer1, que cuenta el cristal de 16 MHz; en el nRF52840, el RTC alimentado por el oscilador RC de baja frecuencia (LFRC) contra el contador de ciclos, además del periférico RNG del chip. Primero se tomaron 20\,000 muestras por fuente, para una estimación preliminar, y luego 1\,000\,001, para una estimación sin advertencias de tamaño de muestra. La min-entropía se estimó con \texttt{ea\_non\_iid} sobre el byte bajo de cada muestra. El valor acreditado a cada fuente se fijó por debajo del valor estimado, redondeando hacia abajo y dejando margen.
+\paragraph{E2. Caracterización de fuentes físicas independientes.} En cada microcontrolador se midió, en ciclos del reloj principal, el periodo de un oscilador físicamente independiente de la CPU. En AVR, la interrupción del perro guardián (\textit{watchdog}), alimentada por un oscilador RC de 128 kHz, con marcas de tiempo del Timer1, que cuenta el cristal de 16 MHz. En el nRF52840, el RTC alimentado por el oscilador RC de baja frecuencia (LFRC) contra el contador de ciclos, además del periférico RNG del chip. Primero se tomaron 20\,000 muestras por fuente, para una estimación preliminar y luego 1\,000\,001, para una estimación sin advertencias de tamaño de muestra. La min-entropía se estimó con \texttt{ea\_non\_iid} sobre el byte bajo de cada muestra. El valor acreditado a cada fuente se fijó por debajo del valor estimado, redondeando hacia abajo y dejando margen.
 
 \paragraph{E3. Variante IoT sobre hardware.} Con la fuente de E2 y el valor acreditado, se ejecutó la variante \texttt{qpp-rng-iot} en las tres placas. Se midieron la divergencia entre reinicios, el rendimiento, las fallas de las pruebas de salud y la huella en Flash, y se aplicaron las pruebas de nivel 1, ENT y SP 800-90B a la salida. Se capturaron primero muestras cortas (10\,000 bytes por AVR y 50\,000 en el nRF52840) y luego muestras de 1\,000\,000 de bytes por placa, para la batería completa.
 

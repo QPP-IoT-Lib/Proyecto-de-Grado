@@ -54,7 +54,7 @@
 %%-----------------------------------------------------------------------------
 \newcommand{\datoTitulo}{\textbf{\textbf{Evaluación de QPP-RNG como fuente de entropía para criptografía ligera en dispositivos IoT críticos} }}
 \newcommand{\datoTituloLargo}{Evaluación de QPP-RNG como fuente de entropía para criptografía ligera en dispositivos IoT críticos}
-\newcommand{\datoAutor}{Adrián Esteban Velásquez Solano \\ Juan Sebastián Sánchez}
+\newcommand{\datoAutor}{Adrián Esteban Velásquez Solano \\ Juan Sebastián Sánchez Lozano}
 \newcommand{\datoGrado}{Ingeniero de Sistemas y Computación}
 \newcommand{\datoDirectorUno}{Ph.D. Carlos Andrés Lozano Garzón}
 \newcommand{\datoGrupo}{COMIT}
@@ -127,30 +127,13 @@
 \end{paginaPreliminar}
 
 %%=============================================================================
-%% DEDICATORIA O LEMA  (opcional)
-%%=============================================================================
 \cleardoublepage
 \thispagestyle{empty}
 {\raggedleft
-  \emph{(Dedicatoria o lema)}\par
-  \vspace{6\baselineskip}
+  \vspace*{6\baselineskip}
   \begin{minipage}{0.62\textwidth}
     \itshape\justifying
-    Su uso es opcional y cada autor podrá determinar la distribución del texto
-    en la página, se sugiere esta presentación. En ella el autor del trabajo
-    dedica su trabajo en forma especial a personas y/o entidades.
-
-    Por ejemplo:
-
-    A mis padres
-
-    o
-
-    La preocupación por el hombre y su destino siempre debe ser el interés
-    primordial de todo esfuerzo técnico. Nunca olvides esto entre tus diagramas
-    y ecuaciones.
-
-    Albert Einstein
+    ESCRIBIR AQUÍ LA DEDICATORIA
   \end{minipage}\par
 }
 \clearpage
@@ -161,19 +144,7 @@
 \cleardoublepage
 \tituloPreliminarSinTDC{Agradecimientos}
 
-Esta sección es opcional, en ella el autor agradece a las personas o
-instituciones que colaboraron en la realización del trabajo. Si se incluye esta
-sección, deben aparecer los nombres completos, los cargos y su aporte al
-trabajo.
-
-A continuación, se presenta la tabla de contenido la cual se actualiza
-automáticamente. En \LaTeX{} basta con volver a compilar el documento (dos
-veces) para que la tabla de contenido, la lista de figuras, la lista de tablas
-y las referencias cruzadas queden actualizadas.
-
-Esta plantilla reproduce las secciones del documento original: cubierta,
-portada, dedicatoria, agradecimientos, resumen, contenido, listas, cuerpo,
-anexos y bibliografía. Es importante conservar dicha estructura.
+Agradecemos al profesor Carlos Andrés Lozano Garzón, director de este proyecto, por su orientación durante todo el trabajo. ESCRIBIR AQUÍ OTROS AGRADECIMIENTOS: nombre completo, cargo y aporte de cada persona o institución.
 
 %%=============================================================================
 %% RESUMEN
@@ -184,19 +155,10 @@ anexos y bibliografía. Es importante conservar dicha estructura.
 \addtocontents{toc}{\protect\encabezadoPag}
 \tituloResumen{Resumen}
 
-Los dispositivos IoT críticos necesitan claves impredecibles, pero muchos microcontroladores carecen de un generador físico de números aleatorios. QPP-RNG, una propuesta reciente que obtiene entropía del \textit{jitter} de ejecución de una caminata de permutaciones, ha sido evaluado favorablemente con las pruebas del NIST en computadores de propósito general. Este trabajo diseñó, implementó en Rust y evaluó una librería que integra QPP-RNG con Ascon-AEAD128 (NIST SP 800-232), con pruebas sobre un Arduino Mega 2560, un Arduino Nano y un nRF52840. En los tres microcontroladores, la salida de la referencia fue idéntica bit a bit tras cada reinicio y, aun así, superó las pruebas estadísticas. En una Raspberry Pi 4 y un computador con Windows, cada ciclo aportó solo entre 0.375 y 0.407 bits de min-entropía según NIST SP 800-90B, unos 2 bits por byte frente a los 8 contabilizados, un déficit que ninguna prueba de la salida detectó. La variante propuesta toma su entropía de un oscilador físicamente independiente (el perro guardián en AVR, con al menos 1.62 bits por muestra, y el RNG del nRF52840), aplica pruebas de salud continuas y contabiliza la entropía de forma explícita. Su salida difiere tras cada reinicio, supera las pruebas evaluadas y alcanza 7.4 B/s en AVR y 101 B/s en el nRF52840, y la pila completa cabe en 16 KB de Flash. Se concluye que QPP-RNG en su forma original no es viable en microcontroladores sin sistema operativo, y que toda afirmación de entropía debe basarse en evaluar la fuente, no la salida.
+Los dispositivos IoT críticos necesitan claves impredecibles, pero muchos microcontroladores carecen de un generador físico de números aleatorios. QPP-RNG, una propuesta reciente que obtiene entropía del \textit{jitter} de ejecución de una caminata de permutaciones, ha sido evaluado favorablemente con las pruebas del NIST en computadores de propósito general. Este trabajo diseñó, implementó en Rust y evaluó una librería que integra QPP-RNG con Ascon-AEAD128 (NIST SP 800-232), con pruebas sobre un Arduino Mega 2560, un Arduino Nano y un nRF52840. En los tres microcontroladores, la salida de la referencia fue idéntica bit a bit tras cada reinicio y, aun así, superó las pruebas estadísticas de nivel 1 sobre muestras de 400 bytes. En una Raspberry Pi 4 y un computador con Windows, cada ciclo aportó solo entre 0.375 y 0.407 bits de min-entropía según NIST SP 800-90B, unos 2 bits por byte frente a los 8 contabilizados, un déficit que ninguna prueba de la salida detectó. La variante propuesta toma su entropía de un oscilador físicamente independiente (el perro guardián en AVR, con al menos 1.62 bits por muestra, y el RNG del nRF52840), aplica pruebas de salud continuas y contabiliza la entropía de forma explícita. Su salida difiere tras cada reinicio, presenta resultados estadísticos globalmente favorables y alcanza 7.4 B/s en AVR y 101 B/s en el nRF52840, y la pila completa cabe en un ATmega328P (32 KB de Flash): ocupa 15.7 KB si solo cifra y 21.0 KB si cifra y descifra.. Se concluye que QPP-RNG en su forma original no es viable en microcontroladores sin sistema operativo, y que toda afirmación de entropía debe basarse en evaluar la fuente, no la salida.
 
 \textbf{Palabras clave:} generación de números aleatorios, min-entropía, QPP-RNG, criptografía ligera, Ascon, Internet de las cosas, Rust.
 
-%%=============================================================================
-%% ABSTRACT
-%%=============================================================================
-\cleardoublepage
-\tituloResumen{Abstract}
-
-Critical IoT devices need unpredictable keys and nonces, yet many microcontrollers have no physical random number generator. QPP-RNG, a recent proposal that draws entropy from the execution jitter of a permutation walk, has been assessed favourably with NIST tests on general-purpose platforms. This work designed, implemented in Rust and evaluated a library that integrates QPP-RNG with Ascon-AEAD128 (NIST SP 800-232): a faithful implementation of the generator, a microcontroller variant, a SHA-256 conditioner, an evaluation harness and test firmware for an Arduino Mega 2560, an Arduino Nano and an nRF52840. On all three microcontrollers, the reference generator's output was bit-for-bit identical after every reset, and it still passed the statistical tests. On a Raspberry Pi 4 and a Windows desktop, each cycle contributed only 0.375 to 0.407 bits of min-entropy according to NIST SP 800-90B, about 2 bits per byte against the 8 accounted for, a shortfall that no output-level test detected. The proposed variant draws its entropy from a physically independent oscillator (the AVR watchdog, at 1.62 to 2.24 bits per sample, and the nRF52840 hardware RNG, at 7.24 bits per byte), applies continuous health tests and accounts for entropy explicitly. Its output differs after every reset, passes the tests applied and reaches 7.4 B/s on AVR and 101 B/s on the nRF52840; the full stack takes 16 KB of flash on AVR. The original QPP-RNG is therefore not viable on bare-metal microcontrollers, and any entropy claim must rest on an assessment of the source, not of the output.
-
-\textbf{Keywords:} random number generation, min-entropy, QPP-RNG, lightweight cryptography, Ascon, Internet of Things, Rust.
 
 %%=============================================================================
 %% CONTENIDO
