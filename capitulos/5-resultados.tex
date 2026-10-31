@@ -28,14 +28,14 @@ Apple Silicon (control) & 3 & 64 B & no & -- & -- \\
 \end{tabularx}
 \end{table}
 
-En los tres microcontroladores, todas las capturas fueron idénticas bit a bit. La razón es que $\Delta t$ es una función determinística de los valores del generador interno (el número de \textit{pads}, los rechazos de la reducción de Lemire y las interrupciones de desbordamiento del temporizador), todos ellos funciones de la semilla, y la siguiente semilla es a su vez una función de $\Delta t$: no hay ruido independiente en ninguna parte del ciclo. La traza del Nano difiere de la del Mega (otra disposición del código produce otros conteos de ciclos), pero cada placa se repite a sí misma con exactitud. Compilar la referencia con optimización por tamaño en lugar de \texttt{-O0} no cambia el determinismo ni, de forma notable, la velocidad: en un núcleo de 8 bits domina la aritmética de 64 y 128 bits.
+En los tres microcontroladores, todas las capturas fueron idénticas bit a bit. La razón es que $\Delta t$ es una función determinística de los valores del generador interno (el número de \textit{pads}, los rechazos de la reducción de Lemire y las interrupciones de desbordamiento del temporizador), todos ellos funciones de la semilla, y la siguiente semilla es a su vez una función de $\Delta t$: no hay ruido independiente en ninguna parte del ciclo. La traza del Nano difiere de la del Mega (otra disposición del código produce otros conteos de ciclos), pero cada placa se repite a sí misma con exactitud. Compilar la referencia con optimización por tamaño en lugar de \texttt{-O0} no cambia el determinismo ni, de forma notable, la velocidad. En un núcleo de 8 bits domina la aritmética de 64 y 128 bits.
 
-Las pruebas estadísticas no detectan esta falla. El byte bajo de $\Delta t$ en la traza del nRF52840 obtiene 4.93 bits por muestra con los estimadores MCV y \textit{t-tuple}, y la salida por defecto reconstruida a partir de la traza supera todas las pruebas de nivel 1 aplicables a 400 bytes. Solamente la comparación entre reinicios revela que la fuente no tiene entropía: la referencia, en estas plataformas, se comporta como un generador pseudoaleatorio cuya clave es la semilla fijada en tiempo de compilación.
+Las pruebas estadísticas no detectan esta falla. El byte bajo de $\Delta t$ en la traza del nRF52840 obtiene 4.93 bits por muestra con los estimadores MCV y \textit{t-tuple}, y la salida por defecto reconstruida a partir de la traza supera todas las pruebas de nivel 1 aplicables a 400 bytes. Solamente la comparación entre reinicios revela que la fuente no tiene entropía.La referencia, en estas plataformas, se comporta como un generador pseudoaleatorio cuya clave es la semilla fijada en tiempo de compilación.
 
 \section{E2: fuentes físicas independientes}
 \label{sec:res_fuentes}
 
-La Tabla~\ref{tab:res_fuentes} resume la caracterización de las fuentes físicas. Las capturas de 20\,000 muestras tomaron unos 5.5 minutos por AVR y 35 segundos en el nRF52840; las de 1\,000\,001 muestras, del orden de 4.7 horas por AVR y 29 minutos en el nRF52840.
+La Tabla~\ref{tab:res_fuentes} resume la caracterización de las fuentes físicas. Las capturas de 20\,000 muestras tomaron unos 5.5 minutos por AVR y 35 segundos en el nRF52840. Las de 1\,000\,001 muestras, del orden de 4.7 horas por AVR y 29 minutos en el nRF52840.
 
 \begin{table}[H]
 \centering
@@ -54,7 +54,7 @@ nRF52840, RNG en hardware & -- & -- & -- & 6.89 & \textbf{7.24} & 4 \\
 \end{tabularx}
 \end{table}
 
-En ambos AVR, el estimador determinante fue \textit{t-tuple}. Con un millón de muestras, ese estimador encuentra más estructura que con 20\,000, porque el periodo del perro guardián deriva lentamente (autocorrelación de 0.65 a 0.69), y los valores estimados bajaron entre 24 y 25\,\%. La Tabla~\ref{tab:res_estimadores_avr} detalla los estimadores. El valor acreditado de 1 bit por muestra sigue cubierto, con un margen de $1.6\times$ en el Mega y de $2.2\times$ en el Nano. Con 8 muestras por byte, cada byte de salida queda respaldado por al menos 12.9 bits estimados en el Mega y 17.9 en el Nano.
+En ambos AVR, el estimador determinante fue \textit{t-tuple}. Con un millón de muestras, ese estimador encuentra más estructura que con 20\,000, porque el periodo del perro guardián deriva lentamente (autocorrelación de 0.65 a 0.69) y los valores estimados bajaron entre 24 y 25\,\%. La Tabla~\ref{tab:res_estimadores_avr} detalla los estimadores. El valor acreditado de 1 bit por muestra sigue cubierto, con un margen de $1.6\times$ en el Mega y de $2.2\times$ en el Nano. Con 8 muestras por byte, cada byte de salida queda respaldado por al menos 12.9 bits estimados en el Mega y 17.9 en el Nano.
 
 \begin{table}[H]
 \centering
@@ -70,11 +70,11 @@ Nano & 4.91 & \textbf{2.24} & 3.38 & 2.93 & 3.30 & 2.92 & 2.93 & \textbf{2.24} \
 \end{tabular}
 \end{table}
 
-La fuente LFRC del nRF52840 presentó solo 42 valores distintos y una fuerte correlación negativa entre muestras consecutivas. El oscilador de 32.768 kHz es mucho más estable que el del perro guardián de AVR, y lo que varía es principalmente la cuantización de la lectura del contador del RTC: una marca de tiempo que llega tarde en un flanco llega temprano en el siguiente. Como el chip tiene un generador en hardware, esta fuente se descartó.
+La fuente LFRC del nRF52840 presentó solo 42 valores distintos y una fuerte correlación negativa entre muestras consecutivas. El oscilador de 32.768 kHz es mucho más estable que el del perro guardián de AVR y lo que varía es principalmente la cuantización de la lectura del contador del RTC. Una marca de tiempo que llega tarde en un flanco llega temprano en el siguiente. Como el chip tiene un generador en hardware, esta fuente se descartó.
 
-El periférico RNG del nRF52840, con un millón de muestras, obtuvo 7.24 bits por byte con \texttt{ea\_non\_iid} (MCV 7.88, \textit{t-tuple} 7.35, LRS 7.72, predictores entre 7.91 y 7.95; el valor determinante proviene de la evaluación por bits, multiplicada por 8) y superó todas las pruebas IID de \texttt{ea\_iid} (independencia por $\chi^2$, $p = 0.94$). Se le acreditaron 4 bits por byte, el mayor valor que cubre la tabla de umbrales de las pruebas de salud, con un margen de más de 3 bits.
+El periférico RNG del nRF52840, con un millón de muestras, obtuvo 7.24 bits por byte con \texttt{ea\_non\_iid} (MCV 7.88, \textit{t-tuple} 7.35, LRS 7.72, predictores entre 7.91 y 7.95. El valor determinante proviene de la evaluación por bits, multiplicada por 8) y superó todas las pruebas IID de \texttt{ea\_iid} (independencia por $\chi^2$, $p = 0.94$). Se le acreditaron 4 bits por byte, el mayor valor que cubre la tabla de umbrales de las pruebas de salud, con un margen de más de 3 bits.
 
-Una segunda captura independiente de cada fuente difirió de la primera desde la primera muestra; para el RNG del nRF52840, hubo 79 coincidencias posicionales en 20\,000 muestras, frente a 78 esperadas por azar. Esta es exactamente la propiedad de la que carece la referencia. Como era de esperar, las muestras crudas fallan gravemente las pruebas de nivel 1 ($\chi^2 \approx 10^5$, correlación serial entre 0.4 y 0.65): son una fuente de ruido con deriva lenta, no bytes uniformes, y por eso el generador las procesa y acondiciona.
+Una segunda captura independiente de cada fuente difirió de la primera desde la primera muestra. Para el RNG del nRF52840, hubo 79 coincidencias posicionales en 20\,000 muestras, frente a 78 esperadas por azar. Esta es exactamente la propiedad de la que carece la referencia. Como era de esperar, las muestras crudas fallan gravemente las pruebas de nivel 1 ($\chi^2 \approx 10^5$, correlación serial entre 0.4 y 0.65): son una fuente de ruido con deriva lenta, no bytes uniformes, y por eso el generador las procesa y acondiciona.
 
 \section{E3: la variante IoT sobre hardware}
 \label{sec:res_iot}
@@ -99,7 +99,7 @@ Generación y composición fusionadas, salida temprana & 2\,863\,887 & $1.6\time
 \end{tabularx}
 \end{table}
 
-En total, el cómputo por byte se redujo $6.6\times$. Por índice de Fisher--Yates, el costo pasó de unos 1\,090 ciclos en la referencia a unos 113 en la variante IoT ($9.7\times$), y por \textit{pad} se redujo cerca de $7.8\times$, aunque cada \textit{pad} de la variante IoT tiene un índice más ($N = 6$). Con 1.62 millones de ciclos (101 ms) por byte frente a 8 muestras del perro guardián por byte ($8 \times 17 = 136$ ms), el generador en AVR quedó limitado por la fuente y no por el cómputo: la caminata termina mientras la interrupción del perro guardián todavía está acumulando las siguientes muestras.
+En total, el cómputo por byte se redujo $6.6\times$. Por índice de Fisher--Yates, el costo pasó de unos 1\,090 ciclos en la referencia a unos 113 en la variante IoT ($9.7\times$), y por \textit{pad} se redujo cerca de $7.8\times$, aunque cada \textit{pad} de la variante IoT tiene un índice más ($N = 6$). Con 1.62 millones de ciclos (101 ms) por byte frente a 8 muestras del perro guardián por byte ($8 \times 17 = 136$ ms), el generador en AVR quedó limitado por la fuente y no por el cómputo. La caminata termina mientras la interrupción del perro guardián todavía está acumulando las siguientes muestras.
 
 \subsection{Divergencia, rendimiento y huella}
 
@@ -168,7 +168,7 @@ En la vía no IID, \texttt{ea\_non\_iid} estimó 5.81 bits por byte para el Mega
 
 \subsection{Batería completa sobre 1\,000\,000 de bytes}
 
-Se capturó 1\,000\,000 de bytes de salida de la variante IoT en cada placa, con el mismo \textit{firmware} y los mismos valores acreditados de las secciones anteriores. En el nRF52840, la captura tomó 2.75 horas a 101 B/s. En los AVR, se dividió en 13 bloques (12 de 80\,000 bytes y uno de 40\,000), cada uno iniciado con un reinicio de la placa, y tomó 37.7 horas en el Mega 2560 (7.37 B/s) y 36.9 horas en el Nano (7.53 B/s). Ningún bloque presentó errores de sincronización ni fallas de las pruebas de salud. Los 13 bloques de cada placa son independientes entre sí: en los primeros 4\,000 bytes de cada uno de los 78 pares de bloques, la tasa de coincidencias posicionales fue de 0.398\,\% en el Mega y de 0.394\,\% en el Nano, frente al $1/256$ (0.391\,\%) esperado por azar, y ningún par compartió siquiera los primeros 4 bytes. La Tabla~\ref{tab:res_iot_1mb} presenta la batería completa sobre las tres salidas.
+Se capturó 1\,000\,000 de bytes de salida de la variante IoT en cada placa, con el mismo \textit{firmware} y los mismos valores acreditados de las secciones anteriores. En el nRF52840, la captura tomó 2.75 horas a 101 B/s. En los AVR, se dividió en 13 bloques (12 de 80\,000 bytes y uno de 40\,000), cada uno iniciado con un reinicio de la placa, y tomó 37.7 horas en el Mega 2560 (7.37 B/s) y 36.9 horas en el Nano (7.53 B/s). Ningún bloque presentó errores de sincronización ni fallas de las pruebas de salud. Los 13 bloques de cada placa son independientes entre sí. En los primeros 4\,000 bytes de cada uno de los 78 pares de bloques, la tasa de coincidencias posicionales fue de 0.398\,\% en el Mega y de 0.394\,\% en el Nano, frente al $1/256$ (0.391\,\%) esperado por azar, y ningún par compartió siquiera los primeros 4 bytes. La Tabla~\ref{tab:res_iot_1mb} presenta la batería completa sobre las tres salidas.
 
 \begin{table}[H]
 \centering
@@ -188,12 +188,12 @@ SP 800-22 (8 flujos de 1 Mbit) & 1\,419 de 1\,426 (99.51\,\%) & 1\,392 de 1\,400
 \end{tabularx}
 \end{table}
 
-Las tres salidas presentan resultados estadísticos globalmente favorables: ninguna falla de forma sistemática, aunque algunas subpruebas de SP 800-22 tienen un flujo rechazado. En SP 800-22, el total de combinaciones varía porque las pruebas de excursiones aleatorias solo se aplican a los flujos con ciclos suficientes (5 de 8 en el Mega, 4 en el Nano y 6 en el nRF52840). Con $\alpha = 0.01$, se esperan por azar unas 14 fallas por placa, y se observaron 7, 8 y 12. Con 8 flujos, el criterio de proporción de la propia herramienta (0.885) exige 8 de 8, de modo que cada subprueba con un flujo rechazado queda marcada individualmente; según el criterio de interpretación del Capítulo~\ref{cap:metodologia}, esto no es anómalo porque el total está por debajo de lo esperado por azar y ninguna subprueba falla en más de un flujo.
+Las tres salidas presentan resultados estadísticos globalmente favorables, ninguna falla de forma sistemática, aunque algunas subpruebas de SP 800-22 tienen un flujo rechazado. En SP 800-22, el total de combinaciones varía porque las pruebas de excursiones aleatorias solo se aplican a los flujos con ciclos suficientes (5 de 8 en el Mega, 4 en el Nano y 6 en el nRF52840). Con $\alpha = 0.01$, se esperan por azar unas 14 fallas por placa, y se observaron 7, 8 y 12. Con 8 flujos, el criterio de proporción de la propia herramienta (0.885) exige 8 de 8, de modo que cada subprueba con un flujo rechazado queda marcada individualmente. Según el criterio de interpretación del Capítulo~\ref{cap:metodologia}, esto no es anómalo porque el total está por debajo de lo esperado por azar y ninguna subprueba falla en más de un flujo.
 
 
-Cada falla corresponde a un único flujo de los 8 que falla una subprueba: en el Mega, 6 plantillas de \textit{NonOverlappingTemplate} y la prueba \textit{Serial}; en el Nano, 7 plantillas y la prueba \textit{Universal}; en el nRF52840, 10 plantillas y 2 variantes de \textit{RandomExcursions}. Ninguna subprueba falla en más de un flujo. El valor de monobit del Nano ($p = 0.015$) supera el umbral de 0.01, y los 8 flujos del Nano superan la prueba \textit{Frequency} de SP 800-22, que mide la misma propiedad.
+Cada falla corresponde a un único flujo de los 8 que falla una subprueba: en el Mega, 6 plantillas de \textit{NonOverlappingTemplate} y la prueba \textit{Serial}, en el Nano, 7 plantillas y la prueba \textit{Universal}, en el nRF52840, 10 plantillas y 2 variantes de \textit{RandomExcursions}. Ninguna subprueba falla en más de un flujo. El valor de monobit del Nano ($p = 0.015$) supera el umbral de 0.01, y los 8 flujos del Nano superan la prueba \textit{Frequency} de SP 800-22, que mide la misma propiedad.
 
-En \texttt{ea\_non\_iid}, el valor determinante en las tres placas proviene de la evaluación por bits, multiplicada por 8 (en el Mega, la estimación por símbolos fue de 7.889; en el Nano, de 7.334 por \textit{t-tuple}). Las tres cifras quedan entre 7.26 y 7.36 bits por byte, del mismo orden que la del RNG crudo del nRF52840 (7.24). En el nRF52840, el valor de la salida (7.28) es cercano al del RNG crudo, lo que indica que la caminata de QPP no añadió ni destruyó sesgo medible. En los AVR, la fuente cruda tiene solo entre 1.6 y 2.2 bits por muestra; las 8 muestras por byte respaldan al menos 12.9 bits evaluados por byte en el Mega y 17.9 en el Nano, de los cuales se acreditan 8, y la salida no muestra el sesgo de la fuente. Como en las muestras cortas, estas cifras son compatibles con una salida de entropía completa, pero no la demuestran: la afirmación de entropía de la variante IoT descansa en la evaluación de la fuente cruda de la Sección~\ref{sec:res_fuentes} y en las pruebas de salud continuas, no en la salida.
+En \texttt{ea\_non\_iid}, el valor determinante en las tres placas proviene de la evaluación por bits, multiplicada por 8 (en el Mega, la estimación por símbolos fue de 7.889 y en el Nano, de 7.334 por \textit{t-tuple}). Las tres cifras quedan entre 7.26 y 7.36 bits por byte, del mismo orden que la del RNG crudo del nRF52840 (7.24). En el nRF52840, el valor de la salida (7.28) es cercano al del RNG crudo, lo que indica que la caminata de QPP no añadió ni destruyó sesgo medible. En los AVR, la fuente cruda tiene solo entre 1.6 y 2.2 bits por muestra, las 8 muestras por byte respaldan al menos 12.9 bits evaluados por byte en el Mega y 17.9 en el Nano, de los cuales se acreditan 8, y la salida no muestra el sesgo de la fuente. Como en las muestras cortas, estas cifras son compatibles con una salida de entropía completa, pero no la demuestran. La afirmación de entropía de la variante IoT descansa en la evaluación de la fuente cruda de la Sección~\ref{sec:res_fuentes} y en las pruebas de salud continuas, no en la salida.
 
 \section{E4: la referencia en anfitriones rápidos}
 \label{sec:res_anfitriones}
@@ -219,7 +219,7 @@ Salida por defecto & 69.8 kB/s & 184 kB/s \\
 
 \paragraph{La referencia no es determinística en estos anfitriones.} Tres capturas de 20\,000 ciclos en la Pi empiezan con el mismo $n_p = 211$, determinado por la semilla, pero con $\Delta t$ de 303, 292 y 293 ticks, y divergen desde ahí. Las coincidencias posicionales de $n_p$ entre capturas fueron entre 73 y 89 de 20\,000, frente a unas 83 esperadas por azar. El modo de falla de E1 no se presenta.
 
-\paragraph{El sesgo estructural se reproduce exactamente.} La salida de 1 MB reconstruida a partir de la traza falla las pruebas monobit, de rachas y de $\chi^2$ ($p < 10^{-23}$ en las tres; el mayor corresponde a monobit, $p = 2.2 \times 10^{-24}$). El bit 7 vale 1 con frecuencia 0.48621, frente a 0.48654 calculado con la Ecuación~\eqref{eq:sesgo_xor} ($\sigma \approx 0.0005$); los bits 0 a 5 están en 0.5 dentro del ruido. El fallo es, entonces, el sesgo de la Sección~\ref{sec:sesgo}, y no un efecto de la plataforma.
+\paragraph{El sesgo estructural se reproduce exactamente.} La salida de 1 MB reconstruida a partir de la traza falla las pruebas monobit, de rachas y de $\chi^2$ ($p < 10^{-23}$ en las tres, el mayor corresponde a monobit, $p = 2.2 \times 10^{-24}$). El bit 7 vale 1 con frecuencia 0.48621, frente a 0.48654 calculado con la Ecuación~\eqref{eq:sesgo_xor} ($\sigma \approx 0.0005$) y los bits 0 a 5 están en 0.5 dentro del ruido. El fallo es, entonces, el sesgo de la Sección~\ref{sec:sesgo}, y no un efecto de la plataforma.
 
 \paragraph{Entropía fresca por ciclo.} En cada ciclo, la semilla absorbe $\Delta t \bmod 256$, pero $n_p$ ya está fijado por la semilla, de modo que la entrada nueva es $\Delta t$ \emph{dado} $n_p$. En la Pi, $\Delta t \approx 1.10 + 1.262\, n_p$ ticks: el 98\,\% de los ciclos cae entre $-1.5$ y $+0.7$ ticks de esa recta, y el percentil 99.9 está en $+4.7$ ticks. Un ciclo es una caminata de unos 2~$\mu$s medida con un reloj de 18.5 ns, de modo que lo que varía es, sobre todo, a qué lado de un flanco del reloj termina el ciclo. Por ejemplo, para $n_p = 3$, 35\,131 de 40\,976 ciclos tienen $\Delta t = 5$. La Tabla~\ref{tab:res_plugin} presenta la min-entropía condicional por estimación directa,
 \begin{equation}
@@ -245,7 +245,7 @@ Computador con Windows (2\,000\,000) & 0.467 \\
 \end{tabularx}
 \end{table}
 
-La Tabla~\ref{tab:res_nist_ciclo} confirma estas cifras con \texttt{ea\_non\_iid}, aplicado al residuo $\Delta t - \operatorname{moda}(\Delta t \mid n_p) + 128$ de cada ciclo. Una entrada anterior, el residuo respecto de una única recta ajustada a todos los datos, obtuvo 0.565 en la Pi, pero es inválida: el desplazamiento fraccionario de la recta varía con $n_p$, de modo que el residuo redondeado todavía contiene información determinada por la semilla.
+La Tabla~\ref{tab:res_nist_ciclo} confirma estas cifras con \texttt{ea\_non\_iid}, aplicado al residuo $\Delta t - \operatorname{moda}(\Delta t \mid n_p) + 128$ de cada ciclo. Una entrada anterior, el residuo respecto de una única recta ajustada a todos los datos, obtuvo 0.565 en la Pi, pero es inválida debido a que el desplazamiento fraccionario de la recta varía con $n_p$, de modo que el residuo redondeado todavía contiene información determinada por la semilla.
 
 \begin{table}[H]
 \centering
@@ -282,11 +282,11 @@ NEXT\_X48 + SHA-256 & supera & 78.8\,\% & 7.89 & 7.17 & 1\,332/1\,348 \\
 \end{tabularx}
 \end{table}
 
-Los totales de SP 800-22 difieren porque las pruebas \textit{RandomExcursions} solamente aplican a los flujos con suficientes ciclos. Los candidatos acondicionados fallan 16 combinaciones cada uno, frente a unas 14.5 y 13.5 esperadas por azar, y ninguna prueba falla en la proporción de flujos, salvo una plantilla de \textit{NonOverlappingTemplate} en el candidato NEXT\_X48 acondicionado (6 de 8 flujos), compatible con el azar entre 148 plantillas. Los crudos fallan justamente las pruebas que el sesgo del bit 7 debe romper: \textit{Frequency} y las dos \textit{CumulativeSums} en ambos, además de \textit{Runs} y \textit{Universal} en \texttt{xorshift128+}; la referencia \texttt{xorshift128+} falla 40 combinaciones, unas tres veces lo esperado por azar. Pero la conclusión central es otra: SP 800-90B asigna incluso a la salida \emph{cruda} entre 7.2 y 7.4 bits por byte, y la salida acondicionada supera las pruebas a la tasa esperada por azar, aunque, según la evaluación por ciclo, contiene unos 1.9 bits de entropía fresca por byte. Estas herramientas miden cómo se ve la salida, no cuánta entrada impredecible la produjo. Solo la traza de la fuente revela el déficit, igual que solo la comparación entre reinicios reveló el determinismo de E1.
+Los totales de SP 800-22 difieren porque las pruebas \textit{RandomExcursions} solamente aplican a los flujos con suficientes ciclos. Los candidatos acondicionados fallan 16 combinaciones cada uno, frente a unas 14.5 y 13.5 esperadas por azar, y ninguna prueba falla en la proporción de flujos, salvo una plantilla de \textit{NonOverlappingTemplate} en el candidato NEXT\_X48 acondicionado (6 de 8 flujos), compatible con el azar entre 148 plantillas. Los crudos fallan justamente las pruebas que el sesgo del bit 7 debe romper: \textit{Frequency} y las dos \textit{CumulativeSums} en ambos, además de \textit{Runs} y \textit{Universal} en \texttt{xorshift128+}, la referencia \texttt{xorshift128+} falla 40 combinaciones, unas tres veces lo esperado por azar. Pero la conclusión central es otra. SP 800-90B asigna incluso a la salida \emph{cruda} entre 7.2 y 7.4 bits por byte, y la salida acondicionada supera las pruebas a la tasa esperada por azar, aunque, según la evaluación por ciclo, contiene unos 1.9 bits de entropía fresca por byte. Estas herramientas miden cómo se ve la salida, no cuánta entrada impredecible la produjo. Solo la traza de la fuente revela el déficit, igual que solo la comparación entre reinicios reveló el determinismo de E1.
 
-Durante este experimento se detectó y corrigió un error de procedimiento que vale la pena registrar. En la Pi, el ejecutable \texttt{assess} de STS se había instalado como un enlace simbólico; el arnés copia las plantillas de STS desde el directorio del ejecutable que encuentra en la ruta, que era el del enlace y no el de STS. Las plantillas no se copiaron, todas las ejecuciones de \textit{NonOverlappingTemplate} abortaron y el informe final contenía 148 filas residuales sin sentido, con totales de entre 1\,300 y 1\,450 combinaciones. El error se detectó porque la misma instalación no reproducía un informe conocido. Los resultados de la Tabla~\ref{tab:res_bateria_pi} provienen de la ejecución corregida, validada previamente contra ese informe.
+Durante este experimento se detectó y corrigió un error de procedimiento que vale la pena registrar. En la Pi, el ejecutable \texttt{assess} de STS se había instalado como un enlace simbólico. El arnés copia las plantillas de STS desde el directorio del ejecutable que encuentra en la ruta, que era el del enlace y no el de STS. Las plantillas no se copiaron, todas las ejecuciones de \textit{NonOverlappingTemplate} abortaron y el informe final contenía 148 filas residuales sin sentido, con totales de entre 1\,300 y 1\,450 combinaciones. El error se detectó porque la misma instalación no reproducía un informe conocido. Los resultados de la Tabla~\ref{tab:res_bateria_pi} provienen de la ejecución corregida, validada previamente contra ese informe.
 
-\section{E5: validación de Ascon-AEAD128}
+\section{E5: validación de ASCON-AEAD128}
 \label{sec:res_ascon}
 
 La Tabla~\ref{tab:res_ascon_validacion} resume la validación de \texttt{ascon-iot}. Ninguna prueba utilizó QPP-RNG ni la aleatoriedad del sistema operativo: las entradas de las pruebas diferenciales se derivaron de forma determinística con SHAKE256.
@@ -299,27 +299,27 @@ La Tabla~\ref{tab:res_ascon_validacion} resume la validación de \texttt{ascon-i
 \toprule
 \textbf{Prueba} & \textbf{Detalle} & \textbf{Resultado} \\
 \midrule
-Vectores KAT & 1\,089 casos de Ascon-AEAD128, cifrado y descifrado; archivo KAT reproducido de forma independiente con \texttt{ascon-c} & 1\,089/1\,089 \\
+Vectores KAT & 1\,089 casos de Ascon-AEAD128, cifrado y descifrado. Archivo KAT reproducido de forma independiente con \texttt{ascon-c} & 1\,089/1\,089 \\
 ACVP (local, de extremo a extremo) & 60 casos de cifrado, 60 de descifrado (30 válidos aceptados, 30 inválidos rechazados), validados con GenVal & 120/120 \\
 Diferencial contra \texttt{ascon-c} & Cifrado idéntico, y descifrado cruzado en ambas direcciones, con longitudes de borde hasta 1\,024 bytes & 3\,000/3\,000 \\
-Autenticación negativa interna & Etiqueta, texto cifrado o datos asociados modificados; \textit{nonce} o clave incorrectos & 1\,280 rechazos, 0 aceptaciones \\
+Autenticación negativa interna & Etiqueta, texto cifrado o datos asociados modificados. \textit{Nonce} o clave incorrectos & 1\,280 rechazos, 0 aceptaciones \\
 Autenticación negativa cruzada & Las mismas manipulaciones, enviadas a Rust y a C & 2\,560 rechazos, 0 aceptaciones \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-Además de los vectores KAT y de la validación ACVP, se ejecutaron 6\,840 verificaciones dirigidas (3\,000 diferenciales sobre 1\,000 casos, 1\,280 de autenticación negativa interna y 2\,560 cruzadas), junto con 768 descifrados válidos de control, sin discrepancias ni aceptaciones inesperadas. Estas pruebas aportan evidencia local y reproducible de equivalencia con la implementación de referencia y de rechazo ante fallas de autenticación, pero no constituyen una validación CAVP ni una certificación del NIST. La prueba de integración genera la clave y el \textit{nonce} con la salida cruda de la referencia de QPP-RNG, con semilla fija; solo verifica la conexión entre ambas bibliotecas y no evalúa la calidad de la entropía.
+Además de los vectores KAT y de la validación ACVP, se ejecutaron 6\,840 verificaciones dirigidas (3\,000 diferenciales sobre 1\,000 casos, 1\,280 de autenticación negativa interna y 2\,560 cruzadas), junto con 768 descifrados válidos de control, sin discrepancias ni aceptaciones inesperadas. Estas pruebas aportan evidencia local y reproducible de equivalencia con la implementación de referencia y de rechazo ante fallas de autenticación, pero no constituyen una validación CAVP ni una certificación del NIST. La prueba de integración genera la clave y el \textit{nonce} con la salida cruda de la referencia de QPP-RNG. Con semilla fija, solo verifica la conexión entre ambas bibliotecas y no evalúa la calidad de la entropía.
 
 \section{E6: desempeño y huella}
 \label{sec:res_huella}
 
-\subsection{Ascon-AEAD128 en el anfitrión}
+\subsection{ASCON-AEAD128 en el anfitrión}
 
 La Tabla~\ref{tab:res_ascon_bench} presenta la línea base de desempeño de Ascon-AEAD128 en el computador portátil (Intel Core i5-1135G7, WSL2), sin datos asociados. Cada valor es la mediana de cinco ejecuciones independientes, y cada ejecución reporta la mediana de siete muestras, con el proceso fijado a un núcleo lógico.
 
 \begin{table}[H]
 \centering
-\caption{Desempeño de Ascon-AEAD128 en el anfitrión (sin datos asociados)}
+\caption{Desempeño de ASCON-AEAD128 en el anfitrión (sin datos asociados)}
 \label{tab:res_ascon_bench}
 \begin{tabular}{@{}rrrrr@{}}
 \toprule
@@ -335,11 +335,11 @@ La Tabla~\ref{tab:res_ascon_bench} presenta la línea base de desempeño de Asco
 \end{tabular}
 \end{table}
 
-El costo fijo por operación domina en los mensajes cortos, que son los habituales en IoT. Los datos asociados añaden un costo casi independiente del tamaño del mensaje, del orden de 42 a 44 ns por bloque de 16 bytes absorbido, y se observan saltos al cruzar los límites de 16 y 32 bytes, de acuerdo con la tasa de 16 bytes de Ascon-AEAD128. Construir el objeto de cifrado a partir de una clave ya disponible es despreciable frente a una operación AEAD. Estas cifras no son extrapolables a los microcontroladores.
+El costo fijo por operación domina en los mensajes cortos, que son los habituales en IoT. Los datos asociados añaden un costo casi independiente del tamaño del mensaje, del orden de 42 a 44 ns por bloque de 16 bytes absorbido, y se observan saltos al cruzar los límites de 16 y 32 bytes, de acuerdo con la tasa de 16 bytes de ASCON-AEAD128. Construir el objeto de cifrado a partir de una clave ya disponible es despreciable frente a una operación AEAD. Estas cifras no son extrapolables a los microcontroladores.
 
 \subsection{Huella de la pila completa en AVR}
 
-La Tabla~\ref{tab:res_huella_avr} muestra el tamaño en Flash de la pila completa (fuente del perro guardián, \texttt{qpp-rng-iot}, SHA-256 y Ascon-AEAD128) en AVR, según los \textit{backends} de RustCrypto y el nivel de optimización. La imagen mínima genera la clave y el \textit{nonce} y cifra un mensaje; la segunda columna corresponde al \textit{firmware} de la prueba de extremo a extremo, que además descifra.
+La Tabla~\ref{tab:res_huella_avr} muestra el tamaño en Flash de la pila completa (fuente del perro guardián, \texttt{qpp-rng-iot}, SHA-256 y ASCON-AEAD128) en AVR, según los \textit{backends} de RustCrypto y el nivel de optimización. La imagen mínima genera la clave y el \textit{nonce} y cifra un mensaje, la segunda columna corresponde al \textit{firmware} de la prueba de extremo a extremo, que además descifra.
 
 \begin{table}[H]
 \centering
@@ -350,7 +350,7 @@ La Tabla~\ref{tab:res_huella_avr} muestra el tamaño en Flash de la pila complet
 \toprule
 \textbf{Compilación} & \textbf{Imagen mínima} & \textbf{Con descifrado} \\
 \midrule
-Por defecto (ATmega2560) & 136 KB (SHA-256: 79 KB; permutación de Ascon: 30 KB) & -- \\
+Por defecto (ATmega2560) & 136 KB (SHA-256: 79 KB y permutación de ASCON: 30 KB) & -- \\
 + \textit{backend} compacto de SHA-256 (ATmega2560) & 59 KB & -- \\
 + \textit{backend} compacto de Ascon, \texttt{opt-level = \textquotedbl{}s\textquotedbl{}} (ATmega328P) & 16.1 KB & 34.7 KB (no cabe) \\
 + \texttt{opt-level = \textquotedbl{}z\textquotedbl{}} (ATmega328P) & \textbf{15.7 KB} (48\,\%) & \textbf{21.0 KB} (64\,\%) \\
@@ -358,7 +358,7 @@ Por defecto (ATmega2560) & 136 KB (SHA-256: 79 KB; permutación de Ascon: 30 KB)
 \end{tabularx}
 \end{table}
 
-En RustCrypto, los \textit{backends} compactos se seleccionan con dos opciones de compilación: \texttt{sha2\_backend\_soft} para SHA-256 y \texttt{ascon\_backend} para Ascon. El camino de entropía de QPP-RNG ocupa menos de 3 KB. Con \texttt{opt-level = \textquotedbl{}s\textquotedbl{}}, el compilador replica la permutación de Ascon en cada función que la invoca (inicialización, datos asociados, finalización, cifrado y descifrado), con entre 3 y 5.5 KB por copia en AVR, de modo que una imagen que también descifra supera los 32 KB del ATmega328P. Con \texttt{opt-level = \textquotedbl{}z\textquotedbl{}}, la permutación queda en una sola función de 3 KB y ambas imágenes caben con holgura.
+En RustCrypto, los \textit{backends} compactos se seleccionan con dos opciones de compilación: \texttt{sha2\_backend\_soft} para SHA-256 y \texttt{ascon\_backend} para ASCON. El camino de entropía de QPP-RNG ocupa menos de 3 KB. Con \texttt{opt-level = \textquotedbl{}s\textquotedbl{}}, el compilador replica la permutación de ASCON en cada función que la invoca (inicialización, datos asociados, finalización, cifrado y descifrado), con entre 3 y 5.5 KB por copia en AVR, de modo que una imagen que también descifra supera los 32 KB del ATmega328P. Con \texttt{opt-level = \textquotedbl{}z\textquotedbl{}}, la permutación queda en una sola función de 3 KB y ambas imágenes caben con holgura.
 
 La RAM estática incluye las constantes del programa: en AVR, Rust las ubica en la sección \texttt{.data}, que se copia de la Flash a la RAM al arranque, entre ellas la tabla de 256 bytes de constantes de SHA-256. La imagen mínima usa así 366 bytes de RAM estática (298 de constantes y 68 de variables) y el \textit{firmware} de extremo a extremo, 662, por sus cadenas de texto del informe.
 
@@ -392,11 +392,11 @@ RAM nunca usada & 357 B de 2\,048 (17\,\%) & 6\,491 B de 8\,192 & 261\,112 B de 
 \end{tabularx}
 \end{table}
 
-Los tres reinicios de cada placa produjeron claves y \textit{nonces} distintos, los 27 textos cifrados y etiquetas coincidieron con \texttt{ascon-c}, todos los mensajes se descifraron correctamente y todas las alteraciones se rechazaron. El descifrado cuesta prácticamente lo mismo que el cifrado, a lo sumo un 3.1\,\% más. Con los \textit{backends} compactos, Ascon-AEAD128 tarda en los AVR 4.4~ms para un mensaje vacío con 16 bytes de datos asociados, más unos 860 ciclos por byte de mensaje, unas 34 veces más que en el nRF52840; los dos AVR coinciden dentro del 1\,\%, como corresponde al mismo núcleo a la misma frecuencia. En RAM, el Nano usa como máximo 1\,691 de sus 2\,048 bytes (662 estáticos y hasta 1\,029 de pila), de modo que a una aplicación real le quedan unos 350 bytes; en el nRF52840 el consumo es irrelevante frente a sus 256 KB.
+Los tres reinicios de cada placa produjeron claves y \textit{nonces} distintos, los 27 textos cifrados y etiquetas coincidieron con \texttt{ascon-c}, todos los mensajes se descifraron correctamente y todas las alteraciones se rechazaron. El descifrado cuesta prácticamente lo mismo que el cifrado, a lo sumo un 3.1\,\% más. Con los \textit{backends} compactos, ASCON-AEAD128 tarda en los AVR 4.4~ms para un mensaje vacío con 16 bytes de datos asociados, más unos 860 ciclos por byte de mensaje, unas 34 veces más que en el nRF52840. Los dos AVR coinciden dentro del 1\,\%, como corresponde al mismo núcleo a la misma frecuencia. En RAM, el Nano usa como máximo 1\,691 de sus 2\,048 bytes (662 estáticos y hasta 1\,029 de pila), de modo que a una aplicación real le quedan unos 350 bytes. Por su parte, en el nRF52840 el consumo es irrelevante frente a sus 256 KB.
 
 \subsection{Tiempo para sembrar}
 
-El acondicionador entrega su salida en bloques de 32 bytes, y cada bloque requiere 64 bytes crudos. Por eso, la primera salida tarda lo mismo sea una clave de 128 bits o una semilla de 256 bits: en la ejecución de extremo a extremo, la clave y su \textit{nonce}, que provienen del mismo bloque, estuvieron listos en 8.7~s en el Nano y 8.8~s en el Mega 2560, a unos 7.4 B/s de salida cruda, y en 0.7~s en el nRF52840. Cada bloque adicional de 32 bytes cuesta otros 64 bytes crudos, es decir, unos 3.7 B/s de salida acondicionada en AVR. Este tiempo de arranque es aceptable para generar la clave de un dispositivo, pero no para producir un \textit{nonce} aleatorio por mensaje; de ahí la recomendación de usar un contador o un DRBG sembrado al arranque.
+El acondicionador entrega su salida en bloques de 32 bytes y cada bloque requiere 64 bytes crudos. Por eso, la primera salida tarda lo mismo sea una clave de 128 bits o una semilla de 256 bits: en la ejecución de extremo a extremo, la clave y su \textit{nonce}, que provienen del mismo bloque, estuvieron listos en 8.7~s en el Nano y 8.8~s en el Mega 2560, a unos 7.4 B/s de salida cruda, y en 0.7~s en el nRF52840. Cada bloque adicional de 32 bytes cuesta otros 64 bytes crudos, es decir, unos 3.7 B/s de salida acondicionada en AVR. Este tiempo de arranque es aceptable para generar la clave de un dispositivo, pero no para producir un \textit{nonce} aleatorio por mensaje. De ahí la recomendación de usar un contador o un DRBG sembrado al arranque.
 
 \section{Síntesis de resultados}
 
@@ -410,9 +410,9 @@ La Tabla~\ref{tab:sintesis_resultados} resume los resultados frente a las pregun
 \toprule
 \textbf{Pregunta} & \textbf{Resultado} \\
 \midrule
-¿Reproduce la referencia el comportamiento publicado? & Parcialmente: reproduce la min-entropía IID publicada (7.85 bits por byte), pero la salida cruda no supera SP 800-22 ni ENT por un sesgo estructural del bit 7, que se predice con exactitud; acondicionada, supera las pruebas a la tasa esperada por azar. \\
+¿Reproduce la referencia el comportamiento publicado? & Parcialmente. Reproduce la min-entropía IID publicada (7.85 bits por byte), pero la salida cruda no supera SP 800-22 ni ENT por un sesgo estructural del bit 7, que se predice con exactitud, acondicionada, supera las pruebas a la tasa esperada por azar. \\
 ¿Hay entropía en el \textit{jitter} de ejecución en microcontroladores? & No. En las tres placas, la salida es idéntica bit a bit tras cada reinicio. En anfitriones rápidos sí la hay, pero solo unos 2 bits por byte, frente a los 8 contabilizados. \\
-¿Qué fuente física la sustituye y a qué costo? & El perro guardián frente al Timer1 en AVR (1.62 y 2.24 bits por muestra; se acreditó 1) y el RNG en hardware del nRF52840 (7.24 bits por byte; se acreditaron 4). La variante IoT alcanza 7.4 B/s en AVR y 101 B/s en el nRF52840, con 2.9 a 6.5 KB de \textit{firmware}, y su salida supera la batería completa sobre 1\,000\,000 de bytes en las tres placas. \\
+¿Qué fuente física la sustituye y a qué costo? & El perro guardián frente al Timer1 en AVR (1.62 y 2.24 bits por muestra; se acreditó 1) y el RNG en hardware del nRF52840 (7.24 bits por byte, se acreditaron 4). La variante IoT alcanza 7.4 B/s en AVR y 101 B/s en el nRF52840, con 2.9 a 6.5 KB de \textit{firmware}, y su salida supera la batería completa sobre 1\,000\,000 de bytes en las tres placas. \\
 ¿Se integra con Ascon-AEAD128 en un microcontrolador de 8 bits? & Sí. La pila completa ocupa entre 15.7 y 21.0 KB de Flash con los \textit{backends} compactos y cabe en un ATmega328P. En las tres placas generó una clave distinta en cada reinicio y cifró y descifró de forma idéntica a \texttt{ascon-c}; la primera clave tarda 8.7 a 8.8~s en AVR y 0.7~s en el nRF52840, y cifrar 64 bytes, 7.8 y 0.23~ms. Ascon supera KAT, ACVP y las pruebas diferenciales. \\
 \bottomrule
 \end{tabularx}
