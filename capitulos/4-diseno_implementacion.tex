@@ -64,7 +64,7 @@ La Tabla~\ref{tab:crates} describe cada componente. Todos los que forman parte d
 \texttt{qpp-rng-firmware} & Un ejecutable por candidato, para medir la huella de cada uno por separado. \\
 \texttt{test-harness} & Arnés de evaluación: \texttt{candidates}, \texttt{stats}, \texttt{bench}, \texttt{footprint}, \texttt{differential} y \texttt{report}. \\
 \texttt{xtask} & Orquestador que ejecuta la comparación completa (\texttt{cargo xtask compare}). \\
-\texttt{hil-firmware} & \textit{Firmware} de prueba para AVR y nRF52840, y herramientas de captura y análisis en el anfitrión. \\
+\texttt{hil-firmware} & \textit{Firmware} de prueba para AVR, nRF52840 y ESP32, y herramientas de captura y análisis en el anfitrión. \\
 \texttt{ascon-iot} & Ascon-AEAD128 (NIST SP 800-232) sobre la implementación de RustCrypto, con generación de claves y \textit{nonces} desde cualquier \texttt{rand\_core::Rng}. \\
 \texttt{qpp-iot}, \texttt{qpp-iot-boards} & Fachada \texttt{QppEntropy} (fuente $\rightarrow$ QPP-RNG $\rightarrow$ SHA-256 $\rightarrow$ \texttt{Rng}) y una fuente física por placa. \\
 \bottomrule
@@ -94,7 +94,7 @@ macOS en Apple Silicon & \texttt{mach\_absolute\_time} \\
 Linux o macOS en x86 & \texttt{RDTSC} si el TSC es invariante; si no, \texttt{clock\_gettime} \\
 Linux en ARM64 (Raspberry Pi 4) & Registro \texttt{CNTVCT\_EL0} del temporizador genérico (54 MHz en la Pi 4) \\
 Linux en ARM32 & Contador de ciclos de la PMU, con respaldo a \texttt{clock\_gettime} \\
-ESP32 & Registro \texttt{CCOUNT} \\
+ESP32 (Xtensa LX6) & Registro especial \texttt{CCOUNT}, contador de ciclos de la CPU \\
 AVR (ATmega328P, ATmega2560) & Timer1 sin preescalador, extendido a 32 bits por la interrupción de desbordamiento \\
 Cortex-M (nRF52840) & \texttt{CYCCNT} de la unidad DWT \\
 Otros sistemas Unix & \texttt{clock\_gettime(CLOCK\_MONOTONIC)} \\
@@ -225,7 +225,7 @@ El acondicionador se mantuvo en un \textit{crate} propio por la misma razón que
 
 \subsection{Motivación}
 
-El experimento E1 (Sección~\ref{sec:res_determinismo}) mostró que la referencia no tiene entropía en los tres microcontroladores: desde un reinicio, cada placa reproduce exactamente la misma traza $(n_p, \Delta t)$. En un núcleo sin caché, sin sistema operativo y sin otros maestros de bus, cada instrucción tarda un número fijo de ciclos y el temporizador cuenta el mismo reloj que la CPU, de modo que $\Delta t$ es una función determinística de la semilla. La variante IoT conserva la estructura de QPP-RNG, pero cambia la fuente de entropía y, de paso, el costo de cómputo. La Tabla~\ref{tab:cambios_iot} resume las diferencias.
+El experimento E1 (Sección~\ref{sec:res_determinismo}) mostró que la referencia no tiene entropía en los cuatro microcontroladores: desde un reinicio, cada placa reproduce exactamente la misma traza $(n_p, \Delta t)$. En un núcleo sin sistema operativo y sin otros maestros de bus, cada instrucción tarda un número de ciclos que depende solo del estado del propio programa y el temporizador cuenta el mismo reloj que la CPU, de modo que $\Delta t$ es una función determinística de la semilla. La caché de la Flash de la ESP32 no cambia esta conclusión: su contenido también es una función determinística del programa ejecutado desde el reinicio. La variante IoT conserva la estructura de QPP-RNG, pero cambia la fuente de entropía y, de paso, el costo de cómputo. La Tabla~\ref{tab:cambios_iot} resume las diferencias.
 
 \begin{table}[H]
 \centering
@@ -265,7 +265,7 @@ En la referencia, una medición de tiempo equivale a un ciclo de convergencia, d
 \begin{equation}
     \text{muestras por caminata} = \max\!\left(1,\; \left\lceil \frac{\lceil 8 / H \rceil}{4} \right\rceil \right),
 \end{equation}
-mientras que el número de caminatas por byte se fija en 4, lo justo para aplanar el sesgo de la extracción con $N = 6$ (Tabla~\ref{tab:sesgo}). Con $H = 1$ (AVR), cada byte absorbe 8 muestras, con $H = 4$ (RNG del nRF52840), 4. Cada muestra se incorpora a una semilla de 64 bits como $s \leftarrow (s \ll 8) \oplus x$. Antes del primer byte, el generador absorbe 8 muestras adicionales para que la salida inicial no dependa de la semilla nula.
+mientras que el número de caminatas por byte se fija en 4, lo justo para aplanar el sesgo de la extracción con $N = 6$ (Tabla~\ref{tab:sesgo}). Con $H = 1$ (AVR), cada byte absorbe 8 muestras, con $H = 4$ (RNG del nRF52840 o de la ESP32), 4. Cada muestra se incorpora a una semilla de 64 bits como $s \leftarrow (s \ll 8) \oplus x$. Antes del primer byte, el generador absorbe 8 muestras adicionales para que la salida inicial no dependa de la semilla nula.
 
 \subsection{Generación de permutaciones de bajo costo}
 
@@ -288,6 +288,8 @@ En el ATmega2560, la referencia gasta en promedio unos 1\,090 ciclos por índice
 
 \paragraph{nRF52840: generador en hardware.} El nRF52840 incluye un periférico RNG basado en ruido térmico, con corrección de sesgo. Se evaluó también una fuente análoga a la de AVR (el RTC alimentado por el oscilador LFRC de 32.768 kHz contra el contador de ciclos), pero su min-entropía resultó baja (Sección~\ref{sec:res_fuentes}), y se prefirió el periférico RNG, que la variante IoT usa como \texttt{JitterSource}.
 
+\paragraph{ESP32: generador en hardware con su fuente de ruido activa.} La ESP32 también incluye un periférico RNG. Según la documentación del fabricante, su salida solo es verdaderamente aleatoria mientras está activa alguna fuente de ruido física, la radio o el ruido del ADC de aproximaciones sucesivas (SAR); con ambas apagadas, debe considerarse pseudoaleatoria. Como los \textit{firmwares} de este trabajo no usan la radio, la fuente de la ESP32 toma posesión del ADC1 al construirse y deja la fuente de ruido del ADC activada durante toda la ejecución, de modo que la precondición queda garantizada por el tipo y no por la disciplina de quien integra la librería. Cada muestra es el byte bajo de una palabra del RNG. Se evaluó también una fuente análoga a la de AVR: el reloj lento del dominio RTC, un oscilador RC de unos 156 kHz, cuyo periodo acumulado durante 256 ciclos mide en ciclos del cristal de 40 MHz la unidad de calibración del grupo de temporizadores 0. Esa fuente resultó utilizable, pero más débil que el RNG (Sección~\ref{sec:res_fuentes}), y no se usa. El \textit{firmware} se ejecuta en el núcleo 0, con el núcleo 1 detenido y la radio apagada.
+
 \section{Arnés de evaluación}
 \label{sec:arnes}
 
@@ -306,7 +308,7 @@ El orquestador \texttt{xtask} ejecuta la secuencia completa con \texttt{cargo xt
 \section{\textit{Firmware} de pruebas sobre hardware}
 \label{sec:hil}
 
-El arnés del anfitrión no puede detectar el modo de falla principal de este trabajo porque la salida determinística de la referencia supera las pruebas estadísticas. Para eso se construyó un \textit{firmware} de pruebas para AVR y para el nRF52840 con tres modos seleccionados en tiempo de compilación (Tabla~\ref{tab:modos_hil}). Todos transmiten por UART a 115\,200 baudios una línea de encabezado que comienza con \texttt{QPPHIL}, seguida de registros formados por un byte de sincronización (\texttt{0xA5}) y dos enteros de 32 bits en orden \textit{little-endian}. El código común a ambas placas (el protocolo y el ciclo completo del modo IoT) vive en un \textit{crate} compartido.
+El arnés del anfitrión no puede detectar el modo de falla principal de este trabajo porque la salida determinística de la referencia supera las pruebas estadísticas. Para eso se construyó un \textit{firmware} de pruebas para AVR, para el nRF52840 y para la ESP32 con tres modos seleccionados en tiempo de compilación (Tabla~\ref{tab:modos_hil}). Todos transmiten por UART a 115\,200 baudios una línea de encabezado que comienza con \texttt{QPPHIL}, seguida de registros formados por un byte de sincronización (\texttt{0xA5}) y dos enteros de 32 bits en orden \textit{little-endian}. El código común a todas las placas (el protocolo y el ciclo completo del modo IoT) vive en un \textit{crate} compartido. En la ESP32, la inicialización de relojes y de la UART se delega en \texttt{esp-hal}, y existe un cuarto modo que repite la captura de la fuente cruda con la fuente de ruido del ADC desactivada, como control.
 
 \begin{table}[H]
 \centering
@@ -317,13 +319,13 @@ El arnés del anfitrión no puede detectar el modo de falla principal de este tr
 \textbf{Modo} & \textbf{Registros transmitidos} & \textbf{Uso} \\
 \midrule
 Traza de referencia & $n_p$ y $\Delta t$ de cada ciclo de la referencia & Repetibilidad entre reinicios (E1) \\
-Fuente cruda & Muestra de la fuente física (y byte del RNG en el nRF52840) & Estimación con SP 800-90B (E2) \\
+Fuente cruda & Muestra de la fuente física (y palabra del RNG en el nRF52840 y en la ESP32) & Estimación con SP 800-90B (E2) \\
 IoT & 4 bytes de salida de \texttt{qpp-rng-iot} y los ciclos que tomaron & Rendimiento y pruebas de la salida (E3) \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-En el anfitrión, un programa de captura abre el puerto serie (lo que reinicia una placa Arduino), valida el encabezado y la sincronización de cada registro y escribe los registros y un archivo de metadatos. Otro programa convierte los registros en flujos de bytes para las herramientas del NIST. Para las capturas largas se escribió un controlador que captura bloques de 20\,000 registros, reintenta un bloque fallido y se detiene ante una falla de las pruebas de salud.
+En el anfitrión, un programa de captura abre el puerto serie (lo que reinicia una placa Arduino), valida el encabezado y la sincronización de cada registro y escribe los registros y un archivo de metadatos. Un registro solo se acepta si el byte que le sigue es el de sincronización del siguiente, y los rechazos se cuentan en los metadatos. Esta comprobación se añadió después de que, en la ESP32, se perdiera un byte en el enlace serie y un registro desplazado entrara en los datos (Sección~\ref{sec:res_fuentes}). Otro programa convierte los registros en flujos de bytes para las herramientas del NIST. Para las capturas largas se escribió un controlador que captura bloques de 20\,000 registros, reintenta un bloque fallido y se detiene ante una falla de las pruebas de salud.
 
 \section{Cifrado autenticado: ASCON-IoT}
 \label{sec:ascon_iot}
@@ -357,6 +359,6 @@ La fachada \texttt{qpp-iot} combina los dos repositorios anteriores en un solo t
 \label{fig:tuberia}
 \end{figure}
 
-El \textit{crate} \texttt{qpp-iot-boards} provee una fuente por placa, cada una detrás de una característica de compilación: \texttt{avr-wdt} (Arduino Uno, Nano y Mega 2560), \texttt{nrf52840} y \texttt{mock}, un generador determinístico \emph{sin entropía}, útil únicamente para probar la tubería en el anfitrión. Activar la característica de una placa al compilar para otra arquitectura produce un error de compilación. Como el acondicionador solo acepta una fuente infalible, \texttt{QppEntropy} usa el envoltorio que entra en pánico ante una falla de salud. Por ello, la configuración recomendada es \texttt{panic = \textquotedbl{}abort\textquotedbl{}} y el pánico debe tratarse como ``reiniciar y volver a sembrar'', nunca como ``continuar''.
+El \textit{crate} \texttt{qpp-iot-boards} provee una fuente por placa, cada una detrás de una característica de compilación: \texttt{avr-wdt} (Arduino Uno, Nano y Mega 2560), \texttt{nrf52840}, \texttt{esp32} y \texttt{mock}, un generador determinístico \emph{sin entropía}, útil únicamente para probar la tubería en el anfitrión. Activar la característica de una placa al compilar para otra arquitectura produce un error de compilación. Como el acondicionador solo acepta una fuente infalible, \texttt{QppEntropy} usa el envoltorio que entra en pánico ante una falla de salud. Por ello, la configuración recomendada es \texttt{panic = \textquotedbl{}abort\textquotedbl{}} y el pánico debe tratarse como ``reiniciar y volver a sembrar'', nunca como ``continuar''.
 
 En AVR, la tubería completa solo cabe en la memoria Flash si se usan las variantes compactas de los \textit{backends} de SHA-256 y ASCON, que se seleccionan con banderas de compilación (Sección~\ref{sec:res_huella}). Dado que una librería no puede fijar esas banderas por su cuenta, toda aplicación para AVR debe incluirlas en su configuración de compilación. El repositorio incluye un \textit{script} que lo hace y que falla si la imagen deja de caber. Si la aplicación también descifra, debe compilarse además con \texttt{opt-level = \textquotedbl{}z\textquotedbl{}}, de lo contrario, la imagen no cabe en un ATmega328P (Sección~\ref{sec:res_huella}). El repositorio incluye también el \textit{firmware} de la prueba de extremo a extremo y el \textit{script} que verifica su informe contra \texttt{ascon-c} (Sección~\ref{sec:res_e2e}).

@@ -23,19 +23,24 @@ Mega 2560 & 3 & 200--300 & sí, 100\,\% & 4\,374 & 5.95 \\
 Nano & 2 & 300 & sí, 100\,\% & 4\,212 & 6.15 \\
 Nano, referencia con \texttt{opt-level=\textquotedbl{}s\textquotedbl{}} & 2 & 300 & sí, 100\,\% & 4\,259 & 5.87 \\
 nRF52840 & 3 & 2\,000 & sí, 100\,\% & 364 & 287 \\
+ESP32 & 2 + 3 & 2\,000 y 20\,000 & sí, 100\,\% & 448 & 895 \\
 Apple Silicon (control) & 3 & 64 B & no & -- & -- \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-En los tres microcontroladores, todas las capturas fueron idénticas bit a bit. La razón es que $\Delta t$ es una función determinística de los valores del generador interno (el número de \textit{pads}, los rechazos de la reducción de Lemire y las interrupciones de desbordamiento del temporizador), todos ellos funciones de la semilla, y la siguiente semilla es a su vez una función de $\Delta t$: no hay ruido independiente en ninguna parte del ciclo. La traza del Nano difiere de la del Mega (otra disposición del código produce otros conteos de ciclos), pero cada placa se repite a sí misma con exactitud. Compilar la referencia con optimización por tamaño en lugar de \texttt{-O0} no cambia el determinismo ni, de forma notable, la velocidad. En un núcleo de 8 bits domina la aritmética de 64 y 128 bits.
+La columna B/s es la salida por defecto que el cómputo permite ($m = 5$ ciclos por byte), calculada a partir de los ciclos medidos. En la ESP32, el ciclo medio fue de 53\,635 ciclos de CPU para 119.7 \textit{pads}, y la captura misma quedó limitada por la UART a 1\,280 registros por segundo.
 
-Las pruebas estadísticas no detectan esta falla. El byte bajo de $\Delta t$ en la traza del nRF52840 obtiene 4.93 bits por muestra con los estimadores MCV y \textit{t-tuple}, y la salida por defecto reconstruida a partir de la traza supera todas las pruebas de nivel 1 aplicables a 400 bytes. Solamente la comparación entre reinicios revela que la fuente no tiene entropía.La referencia, en estas plataformas, se comporta como un generador pseudoaleatorio cuya clave es la semilla fijada en tiempo de compilación.
+En los cuatro microcontroladores, todas las capturas fueron idénticas bit a bit. La razón es que $\Delta t$ es una función determinística de los valores del generador interno (el número de \textit{pads}, los rechazos de la reducción de Lemire y las interrupciones de desbordamiento del temporizador), todos ellos funciones de la semilla, y la siguiente semilla es a su vez una función de $\Delta t$: no hay ruido independiente en ninguna parte del ciclo. La traza del Nano difiere de la del Mega (otra disposición del código produce otros conteos de ciclos), pero cada placa se repite a sí misma con exactitud. Compilar la referencia con optimización por tamaño en lugar de \texttt{-O0} no cambia el determinismo ni, de forma notable, la velocidad. En un núcleo de 8 bits domina la aritmética de 64 y 128 bits.
+
+El caso de la ESP32 es el más informativo, porque es el único de los cuatro que ejecuta el código desde una memoria Flash externa a través de una caché, un mecanismo que la literatura cita entre las fuentes del \textit{jitter} de QPP-RNG. Aun así, las cinco capturas, tomadas tras reinicios por el pin EN, fueron idénticas en todos los registros, incluidas las tres de 20\,000 ciclos. La caché no añade ruido: tras un reinicio, su contenido evoluciona de la misma forma, porque depende únicamente de la secuencia de accesos del programa, que a su vez depende solo de la semilla.
+
+Las pruebas estadísticas no detectan esta falla. El byte bajo de $\Delta t$ en la traza del nRF52840 obtiene 4.93 bits por muestra con los estimadores MCV y \textit{t-tuple}, y la salida por defecto reconstruida a partir de la traza supera todas las pruebas de nivel 1 aplicables a 400 bytes. En la ESP32, los 4\,000 bytes de salida reconstruidos a partir de una traza también superan el nivel 1 (monobit $p = 0.85$, rachas $p = 0.96$, $\chi^2$ $p = 0.89$). Solamente la comparación entre reinicios revela que la fuente no tiene entropía. La referencia, en estas plataformas, se comporta como un generador pseudoaleatorio cuya clave es la semilla fijada en tiempo de compilación.
 
 \section{E2: fuentes físicas independientes}
 \label{sec:res_fuentes}
 
-La Tabla~\ref{tab:res_fuentes} resume la caracterización de las fuentes físicas. Las capturas de 20\,000 muestras tomaron unos 5.5 minutos por AVR y 35 segundos en el nRF52840. Las de 1\,000\,001 muestras, del orden de 4.7 horas por AVR y 29 minutos en el nRF52840.
+La Tabla~\ref{tab:res_fuentes} resume la caracterización de las fuentes físicas. Las capturas de 20\,000 muestras tomaron unos 5.5 minutos por AVR y 35 segundos en el nRF52840. Las de 1\,000\,001 muestras, del orden de 4.7 horas por AVR, 29 minutos en el nRF52840 y 27.5 minutos en la ESP32, donde cada registro contiene una medición del reloj lento y una palabra del RNG.
 
 \begin{table}[H]
 \centering
@@ -50,8 +55,13 @@ Mega 2560, perro guardián & 271\,514 (16.97~ms) & 18.3 & 0.65 & 2.14 & \textbf{
 Nano, perro guardián & 265\,950 (16.62~ms) & 45.1 & 0.69 & 2.98 & \textbf{2.24} & 1 \\
 nRF52840, LFRC $\times 32$ & 111\,514 & 37.0 & $-0.91$ & 0.61 & \textbf{0.60} & no se usa \\
 nRF52840, RNG en hardware & -- & -- & -- & 6.89 & \textbf{7.24} & 4 \\
+ESP32, reloj lento RTC $\times 256$ & 65\,744 (1.64~ms)$^{*}$ & 41.0 & 0.98 & 2.64 & \textbf{2.57} & no se usa \\
+ESP32, RNG con ruido del ADC & -- & -- & -- & 6.26 & \textbf{7.15} & 4 \\
 \bottomrule
 \end{tabularx}
+
+\vspace{2pt}
+{\footnotesize\raggedright $^{*}$ En ciclos del cristal de 40 MHz; en las demás fuentes, en ciclos del reloj de la CPU.\par}
 \end{table}
 
 En ambos AVR, el estimador determinante fue \textit{t-tuple}. Con un millón de muestras, ese estimador encuentra más estructura que con 20\,000, porque el periodo del perro guardián deriva lentamente (autocorrelación de 0.65 a 0.69) y los valores estimados bajaron entre 24 y 25\,\%. La Tabla~\ref{tab:res_estimadores_avr} detalla los estimadores. El valor acreditado de 1 bit por muestra sigue cubierto, con un margen de $1.6\times$ en el Mega y de $2.2\times$ en el Nano. Con 8 muestras por byte, cada byte de salida queda respaldado por al menos 12.9 bits estimados en el Mega y 17.9 en el Nano.
@@ -74,7 +84,15 @@ La fuente LFRC del nRF52840 presentó solo 42 valores distintos y una fuerte cor
 
 El periférico RNG del nRF52840, con un millón de muestras, obtuvo 7.24 bits por byte con \texttt{ea\_non\_iid} (MCV 7.88, \textit{t-tuple} 7.35, LRS 7.72, predictores entre 7.91 y 7.95. El valor determinante proviene de la evaluación por bits, multiplicada por 8) y superó todas las pruebas IID de \texttt{ea\_iid} (independencia por $\chi^2$, $p = 0.94$). Se le acreditaron 4 bits por byte, el mayor valor que cubre la tabla de umbrales de las pruebas de salud, con un margen de más de 3 bits.
 
+El RNG de la ESP32, con la fuente de ruido del ADC activada, obtuvo 7.15 bits por byte con un millón de muestras. Como en el nRF52840, el valor determinante proviene de la evaluación por bits multiplicada por 8; la estimación por símbolos fue de 7.31 (\textit{t-tuple}), con MCV 7.90, LRS 7.72 y predictores entre 7.91 y 7.94. La muestra superó todas las pruebas IID de \texttt{ea\_iid} (independencia y bondad de ajuste por $\chi^2$, $p = 0.69$ y $0.75$). Se le acreditaron también 4 bits por byte.
+
+El reloj lento de la ESP32, medido durante 256 de sus ciclos, tuvo un periodo medio de 65\,744 ciclos del cristal, con $\sigma = 41$ y una autocorrelación de 0.98 entre mediciones consecutivas, producto de una deriva lenta: sin ella, la desviación estándar es de 6.0 ciclos. Obtuvo 2.57 bits por muestra, determinados por la evaluación por bits (la estimación por símbolos fue de 4.37, con el predictor \textit{Lag}). Es más que el perro guardián de los AVR y bastaría como fuente física independiente en un chip sin RNG, pero el RNG de este chip es más fuerte, de modo que el reloj lento no se usó.
+
+Como control, se capturó el RNG de la ESP32 con la fuente de ruido del ADC desactivada (y la radio apagada), un estado que el fabricante documenta como pseudoaleatorio. Con 20\,000 muestras en dos reinicios, la salida no se repitió (ninguna palabra coincidió en posición y hubo 76 coincidencias de byte, frente a 78 esperadas por azar) y obtuvo 5.82 bits por byte, frente a 6.26 con la fuente activada y el mismo tamaño de muestra. La prueba de independencia por $\chi^2$ de \texttt{ea\_iid} falló, pero a un tamaño de muestra en el que esa prueba no está calibrada (Sección~\ref{sec:res_iot}). Este resultado no demuestra que el RNG sin fuente de ruido sea débil, ni justifica usarlo: con una muestra tan corta, la única decisión prudente es la del fabricante, mantener la fuente de ruido activada.
+
 Una segunda captura independiente de cada fuente difirió de la primera desde la primera muestra. Para el RNG del nRF52840, hubo 79 coincidencias posicionales en 20\,000 muestras, frente a 78 esperadas por azar. Esta es exactamente la propiedad de la que carece la referencia. Como era de esperar, las muestras crudas fallan gravemente las pruebas de nivel 1 ($\chi^2 \approx 10^5$, correlación serial entre 0.4 y 0.65): son una fuente de ruido con deriva lenta, no bytes uniformes, y por eso el generador las procesa y acondiciona.
+
+En la ESP32 se presentaron dos fallas de captura que se detectaron y corrigieron antes de aceptar los datos. Las primeras capturas del reloj lento repetían los valores en pares, porque la bandera de fin de calibración seguía activa desde la medición anterior; el \textit{firmware} ahora espera a que se borre antes de iniciar la siguiente, y esas capturas se descartaron. Además, una captura de 20\,000 registros perdió un byte en el registro 14\,492 del enlace serie, lo que desplazó un registro hacia los datos. Ninguna otra placa había mostrado esa falla. La captura se descartó y se repitió, y desde entonces el programa de captura solo acepta un registro si el siguiente comienza con el byte de sincronización. Las capturas de un millón de muestras y de un millón de bytes de la ESP32 se tomaron con esa comprobación y no tuvieron ningún rechazo.
 
 \section{E3: la variante IoT sobre hardware}
 \label{sec:res_iot}
@@ -103,7 +121,7 @@ En total, el cómputo por byte se redujo $6.6\times$. Por índice de Fisher--Yat
 
 \subsection{Divergencia, rendimiento y huella}
 
-La Tabla~\ref{tab:res_iot_hw} resume la ejecución de la variante IoT en las tres placas. En los tres casos, la salida difirió entre reinicios y no hubo fallas de las pruebas de salud.
+La Tabla~\ref{tab:res_iot_hw} resume la ejecución de la variante IoT en las cuatro placas. En los cuatro casos, la salida difirió entre reinicios y no hubo fallas de las pruebas de salud. En la ESP32, la divergencia se verificó con dos capturas de 200 bytes tras reinicios, y el rendimiento, con la captura de 1\,000\,000 de bytes que se presenta más adelante en esta sección.
 
 \begin{table}[H]
 \centering
@@ -116,14 +134,15 @@ La Tabla~\ref{tab:res_iot_hw} resume la ejecución de la variante IoT en las tre
 Mega 2560 & distintas, 0/40 & 10\,000 (22.6 min) & 7.36 & 0 & 6\,470 B \\
 Nano & distintas, 0/40 & 10\,000 (22.2 min) & 7.52 & 0 & 6\,330 B \\
 nRF52840 & distintas, 0/200 & 50\,000 (8.2 min) & 101 & 0 & 2\,940 B \\
+ESP32 & distintas, 0/200 & 1\,000\,000 (43.2 min) & 385 & 0 & 25.4 KB \\
 \bottomrule
 \end{tabularx}
 \end{table}
-El costo de cómputo por byte de la variante IoT en el nRF52840 se midió de dos formas. La prueba de arranque, con una fuente sintética y 256 bytes, dio 680\,405 ciclos por byte (10.6 ms). En la captura de 1\,000\,000 de bytes con el RNG real, el promedio fue de 620\,764 ciclos por byte (9.7 ms), consistente con los 101 B/s observados (9.9 ms por byte de tiempo de pared, que incluye la transmisión por UART). La diferencia se debe a que la prueba de arranque usa una única secuencia corta y fija, cuya longitud de caminata no es representativa del promedio.
+El costo de cómputo por byte de la variante IoT en el nRF52840 se midió de dos formas. La prueba de arranque, con una fuente sintética y 256 bytes, dio 680\,405 ciclos por byte (10.6 ms). En la captura de 1\,000\,000 de bytes con el RNG real, el promedio fue de 620\,764 ciclos por byte (9.7 ms), consistente con los 101 B/s observados (9.9 ms por byte de tiempo de pared, que incluye la transmisión por UART). La diferencia se debe a que la prueba de arranque usa una única secuencia corta y fija, cuya longitud de caminata no es representativa del promedio. En la ESP32 ocurrió lo mismo: 704\,109 ciclos por byte en la prueba de arranque y 622\,000 en promedio en la captura larga, es decir, 2.59~ms por byte a 240 MHz. Ese valor explica casi por completo los 385 B/s observados (2.6~ms por byte), de modo que en la ESP32, como en el nRF52840, el generador está limitado por el cómputo y no por la fuente.
 
-Los tamaños corresponden al \textit{firmware} completo, que incluye el código de la UART, la medición de cómputo al arranque y dos instancias del generador (con la fuente real y con la sintética). El \textit{firmware} de la referencia, compilado con \texttt{-O0}, ocupa 8\,912, 8\,780 y 3\,292 bytes, respectivamente.
+Los tamaños corresponden al \textit{firmware} completo, que incluye el código de la UART, la medición de cómputo al arranque y dos instancias del generador (con la fuente real y con la sintética). En la ESP32, la cifra corresponde a las secciones de la imagen e incluye además el código de arranque y de configuración de relojes de \texttt{esp-hal}, por lo que no es comparable directamente con las demás. El \textit{firmware} de la referencia, compilado con \texttt{-O0}, ocupa 8\,912, 8\,780 y 3\,292 bytes, respectivamente.
 
-La Tabla~\ref{tab:res_rendimiento} compara el rendimiento de ambas versiones. En AVR, la variante IoT es más rápida que la referencia y, a diferencia de esta, cada byte está respaldado por al menos 8 bits acreditados. En el nRF52840 la variante IoT es más lenta, porque las caminatas con $N = 6$ son seis veces más largas que con $N = 5$, aunque por \textit{pad} resulta entre $1.5\times$ y $1.7\times$ más barata (entre 215 y 236 ciclos, estimados con el promedio teórico de 2\,880 \textit{pads} por byte, frente a 364 ciclos en la referencia).
+La Tabla~\ref{tab:res_rendimiento} compara el rendimiento de ambas versiones. En AVR, la variante IoT es más rápida que la referencia y, a diferencia de esta, cada byte está respaldado por al menos 8 bits acreditados. En el nRF52840 la variante IoT es más lenta, porque las caminatas con $N = 6$ son seis veces más largas que con $N = 5$, aunque por \textit{pad} resulta entre $1.5\times$ y $1.7\times$ más barata (entre 215 y 236 ciclos, estimados con el promedio teórico de 2\,880 \textit{pads} por byte, frente a 364 ciclos en la referencia). La ESP32 muestra el mismo patrón: la variante IoT entrega 385 B/s frente a los 895 B/s de la referencia, pero con unos 216 ciclos por \textit{pad} frente a 448, es decir, $2.1\times$ más barata por \textit{pad}.
 
 \begin{table}[H]
 \centering
@@ -135,15 +154,16 @@ La Tabla~\ref{tab:res_rendimiento} compara el rendimiento de ambas versiones. En
 \midrule
 Mega 2560 & 5.95 & 7.36 & Tasa del perro guardián \\
 Nano & 6.15 & 7.52 & Tasa del perro guardián \\
-nRF52840 & 287 & 101 & 
+nRF52840 & 287 & 101 &
 Cómputo: 9.7--10.6 ms por byte (ver texto)\\
+ESP32 & 895 & 385 & Cómputo: 2.6 ms por byte \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
 \subsection{Pruebas estadísticas sobre muestras cortas}
 
-La Tabla~\ref{tab:res_iot_tier1} presenta las pruebas de nivel 1 y ENT sobre la salida. Todas las pruebas se superan en las tres placas. Como comparación, los bytes crudos del RNG del nRF52840 fallan la prueba de rachas ($p = 0.006$), mientras que, después de la caminata de QPP, la salida la supera.
+La Tabla~\ref{tab:res_iot_tier1} presenta las pruebas de nivel 1 y ENT sobre la salida de las tres primeras placas; la ESP32 se evaluó directamente sobre 1\,000\,000 de bytes. Todas las pruebas se superan en las tres placas. Como comparación, los bytes crudos del RNG del nRF52840 fallan la prueba de rachas ($p = 0.006$), mientras que, después de la caminata de QPP, la salida la supera.
 
 \begin{table}[H]
 \centering
@@ -168,32 +188,32 @@ En la vía no IID, \texttt{ea\_non\_iid} estimó 5.81 bits por byte para el Mega
 
 \subsection{Batería completa sobre 1\,000\,000 de bytes}
 
-Se capturó 1\,000\,000 de bytes de salida de la variante IoT en cada placa, con el mismo \textit{firmware} y los mismos valores acreditados de las secciones anteriores. En el nRF52840, la captura tomó 2.75 horas a 101 B/s. En los AVR, se dividió en 13 bloques (12 de 80\,000 bytes y uno de 40\,000), cada uno iniciado con un reinicio de la placa, y tomó 37.7 horas en el Mega 2560 (7.37 B/s) y 36.9 horas en el Nano (7.53 B/s). Ningún bloque presentó errores de sincronización ni fallas de las pruebas de salud. Los 13 bloques de cada placa son independientes entre sí. En los primeros 4\,000 bytes de cada uno de los 78 pares de bloques, la tasa de coincidencias posicionales fue de 0.398\,\% en el Mega y de 0.394\,\% en el Nano, frente al $1/256$ (0.391\,\%) esperado por azar, y ningún par compartió siquiera los primeros 4 bytes. La Tabla~\ref{tab:res_iot_1mb} presenta la batería completa sobre las tres salidas.
+Se capturó 1\,000\,000 de bytes de salida de la variante IoT en cada placa, con el mismo \textit{firmware} y los mismos valores acreditados de las secciones anteriores. En el nRF52840, la captura tomó 2.75 horas a 101 B/s. En los AVR, se dividió en 13 bloques (12 de 80\,000 bytes y uno de 40\,000), cada uno iniciado con un reinicio de la placa, y tomó 37.7 horas en el Mega 2560 (7.37 B/s) y 36.9 horas en el Nano (7.53 B/s). En la ESP32, la captura tomó 43.2 minutos a 385 B/s, en un solo arranque. Ningún bloque presentó errores de sincronización ni fallas de las pruebas de salud. Los 13 bloques de cada AVR son independientes entre sí. En los primeros 4\,000 bytes de cada uno de los 78 pares de bloques, la tasa de coincidencias posicionales fue de 0.398\,\% en el Mega y de 0.394\,\% en el Nano, frente al $1/256$ (0.391\,\%) esperado por azar, y ningún par compartió siquiera los primeros 4 bytes. La Tabla~\ref{tab:res_iot_1mb} presenta la batería completa sobre las cuatro salidas.
 
 \begin{table}[H]
 \centering
 \caption{Batería completa sobre 1\,000\,000 de bytes de la variante IoT}
 \label{tab:res_iot_1mb}
-\small
-\begin{tabularx}{\textwidth}{@{}L{0.20\textwidth}YYY@{}}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}L{0.16\textwidth}YYYY@{}}
 \toprule
-\textbf{Prueba} & \textbf{Mega 2560} & \textbf{Nano} & \textbf{nRF52840} \\
+\textbf{Prueba} & \textbf{Mega 2560} & \textbf{Nano} & \textbf{nRF52840} & \textbf{ESP32} \\
 \midrule
-Nivel 1 & Todas superadas: monobit $p = 0.80$, rachas $p = 0.14$, $\chi^2$ $p = 0.67$, corr.\ serial $-0.0012$ & Todas superadas: monobit $p = 0.015$, rachas $p = 0.23$, $\chi^2$ $p = 0.23$, corr.\ serial 0.0017 & Todas superadas: monobit $p = 0.37$, rachas $p = 0.61$, $\chi^2$ $p = 0.50$, corr.\ serial 0.0009 \\
-ENT (bits por byte; $\chi^2$ superado; error de $\pi$) & 7.999823; 66.58\,\%; 0.11\,\% & 7.999804; 23.31\,\%; 0.01\,\% & 7.999817; 49.98\,\%; 0.02\,\% \\
-\texttt{ea\_iid} & Todas las pruebas IID superadas; $H = 7.889$ & Todas las pruebas IID superadas; $H = 7.870$ & Todas las pruebas IID superadas; $H = 7.866$ \\
-\texttt{ea\_non\_iid} (bits por byte) & 7.358 & 7.261 & 7.277 \\
-SP 800-22 (8 flujos de 1 Mbit) & 1\,419 de 1\,426 (99.51\,\%) & 1\,392 de 1\,400 (99.43\,\%) & 1\,440 de 1\,452 (99.17\,\%) \\
+Nivel 1 & Todas superadas: monobit $p = 0.80$, rachas $p = 0.14$, $\chi^2$ $p = 0.67$, corr.\ serial $-0.0012$ & Todas superadas: monobit $p = 0.015$, rachas $p = 0.23$, $\chi^2$ $p = 0.23$, corr.\ serial 0.0017 & Todas superadas: monobit $p = 0.37$, rachas $p = 0.61$, $\chi^2$ $p = 0.50$, corr.\ serial 0.0009 & Todas superadas: monobit $p = 0.14$, rachas $p = 0.52$, $\chi^2$ $p = 0.16$, corr.\ serial $-0.0001$ \\
+ENT (bits por byte; $\chi^2$ superado; error de $\pi$) & 7.999823; 66.58\,\%; 0.11\,\% & 7.999804; 23.31\,\%; 0.01\,\% & 7.999817; 49.98\,\%; 0.02\,\% & 7.999799; 15.81\,\%; 0.20\,\% \\
+\texttt{ea\_iid} & Todas las pruebas IID superadas; $H = 7.889$ & Todas las pruebas IID superadas; $H = 7.870$ & Todas las pruebas IID superadas; $H = 7.866$ & Todas las pruebas IID superadas; $H = 7.886$ \\
+\texttt{ea\_non\_iid} (bits por byte) & 7.358 & 7.261 & 7.277 & 7.307 \\
+SP 800-22 (8 flujos de 1 Mbit) & 1\,419 de 1\,426 (99.51\,\%) & 1\,392 de 1\,400 (99.43\,\%) & 1\,440 de 1\,452 (99.17\,\%) & 1\,363 de 1\,374 (99.20\,\%) \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-Las tres salidas presentan resultados estadísticos globalmente favorables, ninguna falla de forma sistemática, aunque algunas subpruebas de SP 800-22 tienen un flujo rechazado. En SP 800-22, el total de combinaciones varía porque las pruebas de excursiones aleatorias solo se aplican a los flujos con ciclos suficientes (5 de 8 en el Mega, 4 en el Nano y 6 en el nRF52840). Con $\alpha = 0.01$, se esperan por azar unas 14 fallas por placa, y se observaron 7, 8 y 12. Con 8 flujos, el criterio de proporción de la propia herramienta (0.885) exige 8 de 8, de modo que cada subprueba con un flujo rechazado queda marcada individualmente. Según el criterio de interpretación del Capítulo~\ref{cap:metodologia}, esto no es anómalo porque el total está por debajo de lo esperado por azar y ninguna subprueba falla en más de un flujo.
+Las cuatro salidas presentan resultados estadísticos globalmente favorables, ninguna falla de forma sistemática, aunque algunas subpruebas de SP 800-22 tienen un flujo rechazado. En SP 800-22, el total de combinaciones varía porque las pruebas de excursiones aleatorias solo se aplican a los flujos con ciclos suficientes (5 de 8 en el Mega, 4 en el Nano, 6 en el nRF52840 y 3 en la ESP32). Con $\alpha = 0.01$, se esperan por azar unas 14 fallas por placa, y se observaron 7, 8, 12 y 11. Con 8 flujos, el criterio de proporción de la propia herramienta (0.885) exige 8 de 8, de modo que cada subprueba con un flujo rechazado queda marcada individualmente. Según el criterio de interpretación del Capítulo~\ref{cap:metodologia}, esto no es anómalo porque el total está por debajo de lo esperado por azar y ninguna subprueba falla en más de un flujo.
 
 
-Cada falla corresponde a un único flujo de los 8 que falla una subprueba: en el Mega, 6 plantillas de \textit{NonOverlappingTemplate} y la prueba \textit{Serial}, en el Nano, 7 plantillas y la prueba \textit{Universal}, en el nRF52840, 10 plantillas y 2 variantes de \textit{RandomExcursions}. Ninguna subprueba falla en más de un flujo. El valor de monobit del Nano ($p = 0.015$) supera el umbral de 0.01, y los 8 flujos del Nano superan la prueba \textit{Frequency} de SP 800-22, que mide la misma propiedad.
+Cada falla corresponde a un único flujo de los 8 que falla una subprueba: en el Mega, 6 plantillas de \textit{NonOverlappingTemplate} y la prueba \textit{Serial}, en el Nano, 7 plantillas y la prueba \textit{Universal}, en el nRF52840, 10 plantillas y 2 variantes de \textit{RandomExcursions}, y en la ESP32, 9 plantillas, una variante de \textit{RandomExcursions} y una de \textit{RandomExcursionsVariant} (en estas dos, 2 de los 3 flujos aplicables). Ninguna subprueba falla en más de un flujo. El valor de monobit del Nano ($p = 0.015$) supera el umbral de 0.01, y los 8 flujos del Nano superan la prueba \textit{Frequency} de SP 800-22, que mide la misma propiedad.
 
-En \texttt{ea\_non\_iid}, el valor determinante en las tres placas proviene de la evaluación por bits, multiplicada por 8 (en el Mega, la estimación por símbolos fue de 7.889 y en el Nano, de 7.334 por \textit{t-tuple}). Las tres cifras quedan entre 7.26 y 7.36 bits por byte, del mismo orden que la del RNG crudo del nRF52840 (7.24). En el nRF52840, el valor de la salida (7.28) es cercano al del RNG crudo, lo que indica que la caminata de QPP no añadió ni destruyó sesgo medible. En los AVR, la fuente cruda tiene solo entre 1.6 y 2.2 bits por muestra, las 8 muestras por byte respaldan al menos 12.9 bits evaluados por byte en el Mega y 17.9 en el Nano, de los cuales se acreditan 8, y la salida no muestra el sesgo de la fuente. Como en las muestras cortas, estas cifras son compatibles con una salida de entropía completa, pero no la demuestran. La afirmación de entropía de la variante IoT descansa en la evaluación de la fuente cruda de la Sección~\ref{sec:res_fuentes} y en las pruebas de salud continuas, no en la salida.
+En \texttt{ea\_non\_iid}, el valor determinante en las cuatro placas proviene de la evaluación por bits, multiplicada por 8 (en el Mega, la estimación por símbolos fue de 7.889, en el Nano, de 7.334 y en la ESP32, de 7.354, ambas por \textit{t-tuple}). Las cuatro cifras quedan entre 7.26 y 7.36 bits por byte, del mismo orden que las de los RNG crudos del nRF52840 (7.24) y de la ESP32 (7.15). En el nRF52840 y en la ESP32, el valor de la salida (7.28 y 7.31) es cercano al del RNG crudo, lo que indica que la caminata de QPP no añadió ni destruyó sesgo medible. En los AVR, la fuente cruda tiene solo entre 1.6 y 2.2 bits por muestra, las 8 muestras por byte respaldan al menos 12.9 bits evaluados por byte en el Mega y 17.9 en el Nano, de los cuales se acreditan 8, y la salida no muestra el sesgo de la fuente. En la ESP32, las 4 muestras por byte respaldan al menos 28.6 bits evaluados, de los cuales se acreditan 16. Como en las muestras cortas, estas cifras son compatibles con una salida de entropía completa, pero no la demuestran. La afirmación de entropía de la variante IoT descansa en la evaluación de la fuente cruda de la Sección~\ref{sec:res_fuentes} y en las pruebas de salud continuas, no en la salida.
 
 \section{E4: la referencia en anfitriones rápidos}
 \label{sec:res_anfitriones}
@@ -367,36 +387,41 @@ En el anfitrión, \texttt{cargo bloat} atribuye a \texttt{qpp-rng-reference} exa
 \subsection{Ejecución de extremo a extremo en las placas}
 \label{sec:res_e2e}
 
-Para verificar la integración en el dispositivo, se ejecutó la pila completa en las tres placas con un \textit{firmware} de prueba. Este construye \texttt{QppEntropy} sobre la fuente física de la placa, genera una clave de 128 bits y un \textit{nonce} inicial aleatorio, y luego cifra y descifra tres mensajes de 0, 16 y 64 bytes con 16 bytes de datos asociados, usando como \textit{nonce} de cada mensaje el inicial más su índice. Cada mensaje se cifra de nuevo con un bit alterado (en el texto cifrado o, en el mensaje vacío, en la etiqueta), y el descifrado debe rechazarlo. Un \textit{script} en el anfitrión reinicia la placa, lee el informe y recalcula cada texto cifrado y cada etiqueta con la implementación de referencia \texttt{ascon-c}, que antes se verificó contra los 1\,089 vectores KAT. El consumo de pila se midió pintando la RAM libre antes de ejecutar la tubería y buscando, al final, el byte más bajo sobrescrito, lo que incluye las interrupciones. Cada placa se reinició tres veces.
+Para verificar la integración en el dispositivo, se ejecutó la pila completa en las cuatro placas con un \textit{firmware} de prueba. Este construye \texttt{QppEntropy} sobre la fuente física de la placa, genera una clave de 128 bits y un \textit{nonce} inicial aleatorio, y luego cifra y descifra tres mensajes de 0, 16 y 64 bytes con 16 bytes de datos asociados, usando como \textit{nonce} de cada mensaje el inicial más su índice. Cada mensaje se cifra de nuevo con un bit alterado (en el texto cifrado o, en el mensaje vacío, en la etiqueta), y el descifrado debe rechazarlo. Un \textit{script} en el anfitrión reinicia la placa, lee el informe y recalcula cada texto cifrado y cada etiqueta con la implementación de referencia \texttt{ascon-c}, que antes se verificó contra los 1\,089 vectores KAT. El consumo de pila se midió pintando la RAM libre antes de ejecutar la tubería y buscando, al final, el byte más bajo sobrescrito, lo que incluye las interrupciones. Cada placa se reinició tres veces.
 
 \begin{table}[H]
 \centering
-\caption{Ejecución de extremo a extremo de la pila completa (AVR a 16 MHz; nRF52840 a 64 MHz)}
+\caption{Ejecución de extremo a extremo de la pila completa (AVR a 16 MHz; nRF52840 a 64 MHz; ESP32 a 240 MHz)}
 \label{tab:res_e2e}
-\small
-\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}XL{0.2\textwidth}L{0.2\textwidth}L{0.2\textwidth}@{}}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}XL{0.165\textwidth}L{0.165\textwidth}L{0.165\textwidth}L{0.165\textwidth}@{}}
 \toprule
-& \textbf{Nano (ATmega328P)} & \textbf{Mega 2560 (ATmega2560)} & \textbf{nRF52840} \\
+& \textbf{Nano (ATmega328P)} & \textbf{Mega 2560 (ATmega2560)} & \textbf{nRF52840} & \textbf{ESP32} \\
 \midrule
-Reinicios con clave y \textit{nonce} distintos & 3 de 3 & 3 de 3 & 3 de 3 \\
-Textos cifrados y etiquetas iguales a \texttt{ascon-c} & 9 de 9 & 9 de 9 & 9 de 9 \\
-Descifrados correctos; alteraciones rechazadas & 9 de 9; 9 de 9 & 9 de 9; 9 de 9 & 9 de 9; 9 de 9 \\
-Clave de 128 bits y su \textit{nonce} & 8.70 a 8.77~s & 8.82 a 8.85~s & 0.69 a 0.72~s \\
-Cifrado de 0, 16 y 64 bytes (ms) & 4.38, 5.25 y 7.83 & 4.36, 5.23 y 7.81 & 0.13, 0.15 y 0.23 \\
-Costo adicional por byte de mensaje & $\approx 860$ ciclos & $\approx 860$ ciclos & $\approx 103$ ciclos \\
-Flash & 21\,016 B (64\,\%) & 21\,156 B (8\,\%) & 21\,664 B \\
-RAM estática & 662 B & 662 B & 0 B \\
-Pila máxima & 975 a 1\,029 B & 982 a 1\,039 B & 1\,032 B \\
-RAM nunca usada & 357 B de 2\,048 (17\,\%) & 6\,491 B de 8\,192 & 261\,112 B de 262\,144 \\
+Reinicios con clave y \textit{nonce} distintos & 3 de 3 & 3 de 3 & 3 de 3 & 3 de 3 \\
+Textos cifrados y etiquetas iguales a \texttt{ascon-c} & 9 de 9 & 9 de 9 & 9 de 9 & 9 de 9 \\
+Descifrados correctos; alteraciones rechazadas & 9 de 9; 9 de 9 & 9 de 9; 9 de 9 & 9 de 9; 9 de 9 & 9 de 9; 9 de 9 \\
+Clave de 128 bits y su \textit{nonce} & 8.70 a 8.77~s & 8.82 a 8.85~s & 0.69 a 0.72~s & 0.17 a 0.21~s \\
+Cifrado de 0, 16 y 64 bytes (ms) & 4.38, 5.25 y 7.83 & 4.36, 5.23 y 7.81 & 0.13, 0.15 y 0.23 & 1.17, 0.068 y 0.067$^{*}$ \\
+Costo adicional por byte de mensaje & $\approx 860$ ciclos & $\approx 860$ ciclos & $\approx 103$ ciclos & no medible$^{*}$ \\
+Flash & 21\,016 B (64\,\%) & 21\,156 B (8\,\%) & 21\,664 B & 49.9 KB$^{\dagger}$ \\
+RAM estática & 662 B & 662 B & 0 B & 1\,444 B \\
+Pila máxima & 975 a 1\,029 B & 982 a 1\,039 B & 1\,032 B & 1\,180 B \\
+RAM nunca usada & 357 B de 2\,048 (17\,\%) & 6\,491 B de 8\,192 & 261\,112 B de 262\,144 & 193\,920 B de 194\,015 \\
 \bottomrule
 \end{tabularx}
+
+\vspace{2pt}
+{\footnotesize\raggedright $^{*}$ Medido una sola vez por mensaje, con la caché de la Flash fría (ver texto). $^{\dagger}$ Secciones de la imagen, incluidos 5.2 KB de código en la RAM de instrucciones; la RAM libre corresponde a la región pintada por el \textit{firmware}.\par}
 \end{table}
 
-Los tres reinicios de cada placa produjeron claves y \textit{nonces} distintos, los 27 textos cifrados y etiquetas coincidieron con \texttt{ascon-c}, todos los mensajes se descifraron correctamente y todas las alteraciones se rechazaron. El descifrado cuesta prácticamente lo mismo que el cifrado, a lo sumo un 3.1\,\% más. Con los \textit{backends} compactos, ASCON-AEAD128 tarda en los AVR 4.4~ms para un mensaje vacío con 16 bytes de datos asociados, más unos 860 ciclos por byte de mensaje, unas 34 veces más que en el nRF52840. Los dos AVR coinciden dentro del 1\,\%, como corresponde al mismo núcleo a la misma frecuencia. En RAM, el Nano usa como máximo 1\,691 de sus 2\,048 bytes (662 estáticos y hasta 1\,029 de pila), de modo que a una aplicación real le quedan unos 350 bytes. Por su parte, en el nRF52840 el consumo es irrelevante frente a sus 256 KB.
+Los tres reinicios de cada placa produjeron claves y \textit{nonces} distintos, los 36 textos cifrados y etiquetas coincidieron con \texttt{ascon-c}, todos los mensajes se descifraron correctamente y todas las alteraciones se rechazaron. En los AVR y en el nRF52840, el descifrado cuesta prácticamente lo mismo que el cifrado, a lo sumo un 3.1\,\% más. Con los \textit{backends} compactos, ASCON-AEAD128 tarda en los AVR 4.4~ms para un mensaje vacío con 16 bytes de datos asociados, más unos 860 ciclos por byte de mensaje, unas 34 veces más que en el nRF52840. Los dos AVR coinciden dentro del 1\,\%, como corresponde al mismo núcleo a la misma frecuencia. En RAM, el Nano usa como máximo 1\,691 de sus 2\,048 bytes (662 estáticos y hasta 1\,029 de pila), de modo que a una aplicación real le quedan unos 350 bytes. Por su parte, en el nRF52840 y en la ESP32 el consumo es irrelevante frente a la memoria disponible.
+
+En la ESP32, la clave y su \textit{nonce} estuvieron listos entre 167 y 205~ms después del arranque (entre 40 y 49 millones de ciclos), unas cuatro veces más rápido que en el nRF52840. Sus tiempos de cifrado, en cambio, no son comparables con los de las demás placas, y de ellos no puede derivarse un costo por byte. El código se ejecuta desde la Flash a través de una caché que empieza fría: el mismo orden de mensajes produce los mismos conteos de ciclos en cada reinicio, el primer cifrado cuesta unas 17 veces más que los siguientes, y cifrar 64 bytes cuesta menos que cifrar 16. El \textit{firmware} no mide una repetición con la caché caliente, de modo que la cifra de 64 bytes, unos 16\,100 ciclos (0.067~ms), es la más cercana al régimen estable. La imagen de la ESP32 es mayor que las demás porque incluye el código de arranque y de configuración de \texttt{esp-hal}, y su RAM estática se compone de 1\,320 bytes de datos inicializados (\texttt{.data}) y 124 de variables (\texttt{.bss}).
 
 \subsection{Tiempo para sembrar}
 
-El acondicionador entrega su salida en bloques de 32 bytes y cada bloque requiere 64 bytes crudos. Por eso, la primera salida tarda lo mismo sea una clave de 128 bits o una semilla de 256 bits: en la ejecución de extremo a extremo, la clave y su \textit{nonce}, que provienen del mismo bloque, estuvieron listos en 8.7~s en el Nano y 8.8~s en el Mega 2560, a unos 7.4 B/s de salida cruda, y en 0.7~s en el nRF52840. Cada bloque adicional de 32 bytes cuesta otros 64 bytes crudos, es decir, unos 3.7 B/s de salida acondicionada en AVR. Este tiempo de arranque es aceptable para generar la clave de un dispositivo, pero no para producir un \textit{nonce} aleatorio por mensaje. De ahí la recomendación de usar un contador o un DRBG sembrado al arranque.
+El acondicionador entrega su salida en bloques de 32 bytes y cada bloque requiere 64 bytes crudos. Por eso, la primera salida tarda lo mismo sea una clave de 128 bits o una semilla de 256 bits: en la ejecución de extremo a extremo, la clave y su \textit{nonce}, que provienen del mismo bloque, estuvieron listos en 8.7~s en el Nano y 8.8~s en el Mega 2560, a unos 7.4 B/s de salida cruda, en 0.7~s en el nRF52840 y en unos 0.2~s en la ESP32. Cada bloque adicional de 32 bytes cuesta otros 64 bytes crudos, es decir, unos 3.7 B/s de salida acondicionada en AVR. Este tiempo de arranque es aceptable para generar la clave de un dispositivo, pero no para producir un \textit{nonce} aleatorio por mensaje. De ahí la recomendación de usar un contador o un DRBG sembrado al arranque.
 
 \section{Síntesis de resultados}
 
@@ -411,9 +436,9 @@ La Tabla~\ref{tab:sintesis_resultados} resume los resultados frente a las pregun
 \textbf{Pregunta} & \textbf{Resultado} \\
 \midrule
 ¿Reproduce la referencia el comportamiento publicado? & Parcialmente. Reproduce la min-entropía IID publicada (7.85 bits por byte), pero la salida cruda no supera SP 800-22 ni ENT por un sesgo estructural del bit 7, que se predice con exactitud, acondicionada, supera las pruebas a la tasa esperada por azar. \\
-¿Hay entropía en el \textit{jitter} de ejecución en microcontroladores? & No. En las tres placas, la salida es idéntica bit a bit tras cada reinicio. En anfitriones rápidos sí la hay, pero solo unos 2 bits por byte, frente a los 8 contabilizados. \\
-¿Qué fuente física la sustituye y a qué costo? & El perro guardián frente al Timer1 en AVR (1.62 y 2.24 bits por muestra; se acreditó 1) y el RNG en hardware del nRF52840 (7.24 bits por byte, se acreditaron 4). La variante IoT alcanza 7.4 B/s en AVR y 101 B/s en el nRF52840, con 2.9 a 6.5 KB de \textit{firmware}, y su salida supera la batería completa sobre 1\,000\,000 de bytes en las tres placas. \\
-¿Se integra con Ascon-AEAD128 en un microcontrolador de 8 bits? & Sí. La pila completa ocupa entre 15.7 y 21.0 KB de Flash con los \textit{backends} compactos y cabe en un ATmega328P. En las tres placas generó una clave distinta en cada reinicio y cifró y descifró de forma idéntica a \texttt{ascon-c}; la primera clave tarda 8.7 a 8.8~s en AVR y 0.7~s en el nRF52840, y cifrar 64 bytes, 7.8 y 0.23~ms. Ascon supera KAT, ACVP y las pruebas diferenciales. \\
+¿Hay entropía en el \textit{jitter} de ejecución en microcontroladores? & No. En las cuatro placas, incluida la ESP32, que ejecuta desde Flash a través de una caché, la salida es idéntica bit a bit tras cada reinicio. En anfitriones rápidos sí la hay, pero solo unos 2 bits por byte, frente a los 8 contabilizados. \\
+¿Qué fuente física la sustituye y a qué costo? & El perro guardián frente al Timer1 en AVR (1.62 y 2.24 bits por muestra; se acreditó 1) y los RNG en hardware del nRF52840 y de la ESP32 (7.24 y 7.15 bits por byte, con la fuente de ruido del ADC activada en la ESP32; se acreditaron 4). La variante IoT alcanza 7.4 B/s en AVR, 101 B/s en el nRF52840 y 385 B/s en la ESP32, con 2.9 a 6.5 KB de \textit{firmware} en los AVR y el nRF52840, y su salida supera la batería completa sobre 1\,000\,000 de bytes en las cuatro placas. \\
+¿Se integra con Ascon-AEAD128 en un microcontrolador de 8 bits? & Sí. La pila completa ocupa entre 15.7 y 21.0 KB de Flash con los \textit{backends} compactos y cabe en un ATmega328P. En las cuatro placas generó una clave distinta en cada reinicio y cifró y descifró de forma idéntica a \texttt{ascon-c}; la primera clave tarda 8.7 a 8.8~s en AVR, 0.7~s en el nRF52840 y 0.2~s en la ESP32, y cifrar 64 bytes, 7.8 y 0.23~ms en AVR y en el nRF52840. Ascon supera KAT, ACVP y las pruebas diferenciales. \\
 \bottomrule
 \end{tabularx}
 \end{table}

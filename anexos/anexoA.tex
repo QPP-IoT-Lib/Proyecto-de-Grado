@@ -35,7 +35,7 @@ cargo run --release -p stats --bin stats-cli -- full \
     --dir <directorio-con-muestras> --out stats.json
 \end{lstlisting}
 
-\paragraph{Programación y captura en las placas} (placa: \texttt{mega2560}, \texttt{nano} o \texttt{nrf52840}; modo: \texttt{ref}, \texttt{rawsrc} o \texttt{iot}).
+\paragraph{Programación y captura en las placas} (placa: \texttt{mega2560}, \texttt{nano}, \texttt{nrf52840} o \texttt{esp32}; modo: \texttt{ref}, \texttt{rawsrc} o \texttt{iot}, y en la ESP32 también \texttt{rawsrc-noadc}). En la ESP32, el programa de captura reinicia la placa con \texttt{--reset-rts}.
 \begin{lstlisting}
 hil-firmware/tools/run.sh nano iot
 uv run hil-firmware/tools/capture.py --port <puerto> \
@@ -68,14 +68,15 @@ scripts/build-avr.sh atmega328p           # repositorio QPP-IoT
 \begin{lstlisting}
 scripts/build-e2e.sh atmega328p           # AVR; grabar el ELF con avrdude
 (cd firmware/e2e && cargo build --release --target thumbv7em-none-eabihf)
+scripts/build-e2e.sh esp32                # ESP32; grabar con espflash
 uv run scripts/e2e-check.py --port <puerto> --runs 3 \
-    --ascon-c <ascon_c_driver>            # nRF52840: --reset break
+    --ascon-c <ascon_c_driver>   # nRF52840: --reset break; ESP32: --reset rts
 \end{lstlisting}
 
 \section{Formato de los registros}
 
-Cada \textit{firmware} de pruebas transmite por UART, a 115\,200 baudios, una línea ASCII de encabezado que empieza con \texttt{QPPHIL} y describe el modo y los parámetros (por ejemplo, \texttt{QPPHIL avr iot-wdt N=6 credit=1 samples\_per\_byte=8}), seguida de registros de 9 bytes: \texttt{0xA5} y dos enteros de 32 bits en orden \textit{little-endian}. El programa de captura descarta el byte de sincronización y guarda 8 bytes por registro. En el modo de traza, los dos enteros son $n_p$ y $\Delta t$; en el modo de fuente cruda, la muestra de la fuente (y, en el nRF52840, un byte del RNG); en el modo IoT, cuatro bytes de salida y los ciclos que tomaron.
+Cada \textit{firmware} de pruebas transmite por UART, a 115\,200 baudios, una línea ASCII de encabezado que empieza con \texttt{QPPHIL} y describe el modo y los parámetros (por ejemplo, \texttt{QPPHIL avr iot-wdt N=6 credit=1 samples\_per\_byte=8}), seguida de registros de 9 bytes: \texttt{0xA5} y dos enteros de 32 bits en orden \textit{little-endian}. El programa de captura descarta el byte de sincronización y guarda 8 bytes por registro; solo acepta un registro si el byte siguiente es el de sincronización del próximo, y cuenta los rechazos en el archivo de metadatos. En el modo de traza, los dos enteros son $n_p$ y $\Delta t$; en el modo de fuente cruda, la muestra de la fuente (y, en el nRF52840 y la ESP32, una palabra del RNG); en el modo IoT, cuatro bytes de salida y los ciclos que tomaron.
 
 \section{Configuración de las herramientas del NIST}
 
-La batería SP 800-22 del arnés copia el directorio \texttt{templates} de STS desde el directorio del ejecutable \texttt{assess}. Por eso, el directorio de STS debe estar en la ruta de búsqueda del sistema; no basta con un enlace simbólico al ejecutable. Antes de interpretar un informe, conviene comprobar que el archivo \texttt{stats.txt} de cada prueba no contenga la palabra \texttt{ABORTED}. La instalación usada en WSL se validó reproduciendo, fila por fila, el informe de SP 800-22 de la salida de 1\,MB del nRF52840 obtenido en macOS (1\,440 de 1\,452 combinaciones).
+La batería SP 800-22 del arnés copia el directorio \texttt{templates} de STS desde el directorio del ejecutable \texttt{assess}. Por eso, el directorio de STS debe estar en la ruta de búsqueda del sistema; no basta con un enlace simbólico al ejecutable. Antes de interpretar un informe, conviene comprobar que el archivo \texttt{stats.txt} de cada prueba no contenga la palabra \texttt{ABORTED}, y que el resultado de SP 800-22 en el JSON del arnés esté marcado como interpretado (\texttt{parsed}): si \texttt{assess} no está en la ruta de búsqueda, la batería puede reportar un veredicto global favorable sin haber ejecutado SP 800-22. La instalación usada en WSL se validó reproduciendo, fila por fila, el informe de SP 800-22 de la salida de 1\,MB del nRF52840 obtenido en macOS (1\,440 de 1\,452 combinaciones).
