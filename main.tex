@@ -71,7 +71,7 @@
 }
 
 \begin{document}
-
+\decimalpoint
 \setlength{\parindent}{0pt}
 
 \frontmatter   % numeracion en romanos MAYUSCULAS (I, II, III...)
@@ -144,7 +144,13 @@
 \cleardoublepage
 \tituloPreliminarSinTDC{Agradecimientos}
 
-Agradecemos al profesor Carlos Andrés Lozano Garzón, director de este proyecto, por su orientación durante todo el trabajo. ESCRIBIR AQUÍ OTROS AGRADECIMIENTOS: nombre completo, cargo y aporte de cada persona o institución.
+Agradecemos al profesor Carlos Andrés Lozano Garzón, director de este proyecto, por su orientación, por la confianza que depositó en nosotros y por sus observaciones críticas, que fortalecieron cada etapa de este trabajo.
+
+Agradecemos al grupo de investigación COMIT y al Departamento de Ingeniería de Sistemas y Computación de la Universidad de los Andes por el espacio académico en el que se desarrolló este proyecto.
+
+A nuestras familias, por su apoyo incondicional, su paciencia y su confianza a lo largo de toda la carrera; sin ellas este logro no habría sido posible.
+
+A los amigos que conocimos durante la carrera, por compartir con nosotros las clases, los desvelos y las celebraciones, y por hacer de estos años una experiencia que recordaremos siempre.
 
 %%=============================================================================
 %% RESUMEN
@@ -155,7 +161,7 @@ Agradecemos al profesor Carlos Andrés Lozano Garzón, director de este proyecto
 \addtocontents{toc}{\protect\encabezadoPag}
 \tituloResumen{Resumen}
 
-Los dispositivos IoT críticos necesitan claves impredecibles, pero muchos microcontroladores carecen de un generador físico de números aleatorios. QPP-RNG, una propuesta reciente que obtiene entropía del \textit{jitter} de ejecución de una caminata de permutaciones, ha sido evaluado favorablemente con las pruebas del NIST en computadores de propósito general. Este trabajo diseñó, implementó en Rust y evaluó una librería que integra QPP-RNG con Ascon-AEAD128 (NIST SP 800-232), con pruebas sobre un Arduino Mega 2560, un Arduino Nano, un nRF52840 y una ESP32. En los cuatro microcontroladores, incluida la ESP32, que ejecuta su código a través de una caché, la salida de la referencia fue idéntica bit a bit tras cada reinicio y, aun así, superó las pruebas estadísticas de nivel 1. En una Raspberry Pi 4 y un computador con Windows, cada ciclo aportó solo entre 0.375 y 0.407 bits de min-entropía según NIST SP 800-90B, unos 2 bits por byte frente a los 8 contabilizados, un déficit que ninguna prueba de la salida detectó. La variante propuesta toma su entropía de un oscilador físicamente independiente (el perro guardián en AVR, con al menos 1.62 bits por muestra, y los RNG en hardware del nRF52840 y de la ESP32), aplica pruebas de salud continuas y contabiliza la entropía de forma explícita. Su salida difiere tras cada reinicio, supera la batería completa sobre 1\,000\,000 de bytes en las cuatro placas y alcanza 7.4 B/s en AVR, 101 B/s en el nRF52840 y 385 B/s en la ESP32. La pila completa funciona de extremo a extremo en las cuatro placas y cabe en un ATmega328P (32 KB de Flash): ocupa 15.7 KB si solo cifra y 21.0 KB si cifra y descifra. Se concluye que QPP-RNG en su forma original no es viable en microcontroladores sin sistema operativo, y que toda afirmación de entropía debe basarse en evaluar la fuente, no la salida.
+Los dispositivos IoT críticos necesitan claves impredecibles, pero muchos microcontroladores carecen de un generador físico de números aleatorios. QPP-RNG, una propuesta reciente que obtiene entropía del \textit{jitter} de ejecución de una caminata de permutaciones, ha sido evaluado favorablemente con las pruebas del NIST en computadores de propósito general. Este trabajo diseñó, implementó en Rust y evaluó una librería que integra QPP-RNG con Ascon-AEAD128 (NIST SP 800-232), con pruebas sobre un Arduino Mega 2560, un Arduino Nano, un nRF52840 y una ESP32. En los cuatro microcontroladores, incluida la ESP32, que ejecuta su código a través de una caché, la salida de la referencia fue idéntica bit a bit tras cada reinicio y, aun así, superó las pruebas estadísticas de nivel 1. En una Raspberry Pi 4 y un computador con Windows, cada ciclo aportó solo entre 0.375 y 0.407 bits de min-entropía según NIST SP 800-90B, unos 2 bits por byte frente a los 8 contabilizados, un déficit que ninguna prueba de la salida detectó. La variante propuesta toma su entropía de un oscilador físicamente independiente (el perro guardián en AVR, con al menos 1.62 bits por muestra, y los RNG en hardware del nRF52840 y de la ESP32), aplica pruebas de salud continuas y contabiliza la entropía de forma explícita. Su salida difiere tras cada reinicio, presenta resultados estadísticos globalmente favorables sobre 1\,000\,000 de bytes en las cuatro placas y alcanza 7.4 B/s en AVR, 101 B/s en el nRF52840 y 385 B/s en la ESP32. La pila completa funciona de extremo a extremo en las cuatro placas y cabe en un ATmega328P (32 KB de Flash): ocupa 15.7 KB si solo cifra y 21.0 KB si cifra y descifra. Se concluye que QPP-RNG en su forma original no es viable en microcontroladores sin sistema operativo, y que toda afirmación de entropía debe basarse en evaluar la fuente, no la salida.
 
 \textbf{Palabras clave:} generación de números aleatorios, min-entropía, QPP-RNG, criptografía ligera, Ascon, Internet de las cosas, Rust.
 

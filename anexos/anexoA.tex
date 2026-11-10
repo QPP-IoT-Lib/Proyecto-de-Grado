@@ -35,7 +35,7 @@ cargo run --release -p stats --bin stats-cli -- full \
     --dir <directorio-con-muestras> --out stats.json
 \end{lstlisting}
 
-\paragraph{Programación y captura en las placas} (placa: \texttt{mega2560}, \texttt{nano}, \texttt{nrf52840} o \texttt{esp32}; modo: \texttt{ref}, \texttt{rawsrc} o \texttt{iot}, y en la ESP32 también \texttt{rawsrc-noadc}). En la ESP32, el programa de captura reinicia la placa con \texttt{--reset-rts}.
+\paragraph{Programación y captura en las placas} (placa: \texttt{mega2560}, \texttt{nano}, \texttt{nrf52840} o \texttt{esp32}; modo: \texttt{ref}, \texttt{rawsrc} o \texttt{iot}, y en la ESP32 también \texttt{rawsrc-noadc}). En la ESP32, el programa de captura reinicia la placa con \texttt{-{}-reset-rts}.
 \begin{lstlisting}
 hil-firmware/tools/run.sh nano iot
 uv run hil-firmware/tools/capture.py --port <puerto> \
