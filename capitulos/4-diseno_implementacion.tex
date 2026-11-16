@@ -75,7 +75,7 @@ La Tabla~\ref{tab:crates} describe cada componente. Todos los que forman parte d
 
 Los generadores de referencia y el acondicionador implementan el rasgo \texttt{Rng} del ecosistema \texttt{rand\_core} (versión 0.10), de modo que pueden usarse en cualquier librería de Rust que reciba un generador, incluida \texttt{ascon-iot}. La variante IoT implementa \texttt{TryRng} y se adapta a \texttt{Rng} mediante un envoltorio, como se describe más adelante. Sobre ese rasgo, \texttt{rng-core} define \texttt{QppRngSource}, que agrega una sola operación: \texttt{diagnostics()}, la cual expone el ancho de la permutación en bits, el último valor de $n_p$ y la última medición de tiempo. El arnés usa estos diagnósticos para reconstruir el comportamiento interno del generador sin modificar su camino de ejecución. Como ninguno de los dos rasgos tiene métodos genéricos, ambos admiten objetos de rasgo (\texttt{Box<dyn QppRngSource>}), lo que permite que el arnés recorra una lista heterogénea de candidatos.
 
-Ningún generador implementa todavía el rasgo marcador \texttt{rand\_core::CryptoRng}. Ese marcador es una afirmación de seguridad hacia el código que lo consume y se reservó para cuando cada variante supere todas las pruebas de validación.
+Ningún generador implementa todavía el rasgo marcador \texttt{rand\_core::CryptoRng}. Ese marcador es una afirmación de seguridad hacia el código que lo consume y se reservó para cuando cada variante cuente con una justificación criptográfica y un modelo de amenazas, y no solo con pruebas estadísticas.
 
 \section{Temporizadores de alta resolución}
 
@@ -235,11 +235,11 @@ El experimento E1 (Sección~\ref{sec:res_determinismo}) mostró que la referenci
 \toprule
 \textbf{Aspecto} & \textbf{Referencia} & \textbf{Variante IoT} & \textbf{Motivo} \\
 \midrule
-Fuente & Tiempo del propio bucle, medido con el reloj de la CPU & Rasgo \texttt{JitterSource}: un oscilador independiente medido en ciclos de la CPU & El tiempo del propio bucle es determinístico en microcontroladores \\
+Fuente & Tiempo del propio bucle, medido con el reloj de la CPU & Rasgo \texttt{JitterSource}: una fuente física independiente (oscilador medido en ciclos de la CPU o RNG de hardware) & El tiempo del propio bucle es determinístico en microcontroladores \\
 Pruebas de salud & Ninguna & RCT y APT de SP 800-90B sobre cada muestra & Una fuente degradada debe fallar de forma explícita \\
 Generador de \textit{pads} & \texttt{xorshift128+}, semilla de 128 bits, Lemire de 64 bits & \texttt{xorshift32} sembrado con \texttt{fmix32}, Lemire de 8 bits con tabla de umbrales & La aritmética de 64 y 128 bits es costosa en un núcleo de 8 bits \\
 Caminata & Generar \textit{pad}, componer en un arreglo nuevo, comparar & Intercambios de Fisher--Yates aplicados sobre el estado, con salida temprana & La misma caminata con la mitad del tráfico de memoria \\
-$N$ & 5 (media de $n_p$: 120) & 6 (media: 720) & Elimina el sesgo estructural (Tabla~\ref{tab:sesgo}) \\
+$N$ & 5 (media de $n_p$: 120) & 6 (media: 720) & Reduce considerablemente el sesgo estructural (Tabla~\ref{tab:sesgo}) \\
 Contabilidad & Una medición por ciclo, 5 ciclos por byte & $\lceil 8/H \rceil$ muestras por byte, repartidas en 4 caminatas fijas & Separa ``suficiente entropía'' de ``suficiente cómputo'' \\
 Interfaz & \texttt{Rng} (infalible) & \texttt{TryRng<Error = HealthError>} & Los errores son reportables en el dispositivo \\
 \bottomrule
@@ -248,7 +248,7 @@ Interfaz & \texttt{Rng} (infalible) & \texttt{TryRng<Error = HealthError>} & Los
 
 \subsection{Fuente de entropía}
 
-El rasgo \texttt{JitterSource} tiene un único método, \texttt{sample()}, que bloquea hasta la siguiente medición y la retorna como un entero de 32 bits con la entropía en los bits de menor orden. La documentación del rasgo establece la condición que una implementación debe cumplir: medir algo cuyo reloj sea físicamente independiente de la CPU (un oscilador RC separado, un oscilador de anillo o un evento externo), en unidades de un contador síncrono con la CPU. Medir trabajo de la propia CPU con un contador de la propia CPU no es una implementación válida en estos dispositivos.
+El rasgo \texttt{JitterSource} tiene un único método, \texttt{sample()}, que bloquea hasta la siguiente medición y la retorna como un entero de 32 bits con la entropía en los bits de menor orden. El rasgo proporciona una interfaz común para obtener muestras de una fuente física de entropía. Su implementación puede basarse en variaciones temporales medidas con un reloj físicamente independiente de la CPU (un oscilador RC separado, un oscilador de anillo o un evento externo), como en AVR, o en un periférico generador de números aleatorios en hardware, como en el nRF52840 y la ESP32. En ambos casos las muestras deben proceder de un mecanismo físico caracterizado y no del tiempo de ejecución determinista del propio algoritmo; medir trabajo de la propia CPU con un contador de la propia CPU no es una implementación válida en estos dispositivos.
 
 \subsection{Pruebas de salud continuas}
 
@@ -257,7 +257,7 @@ Cada muestra cruda pasa por las dos pruebas continuas de SP 800-90B \cite{Turan2
     C_{\text{RCT}} = 1 + \left\lceil \frac{20}{H} \right\rceil, \qquad
     C_{\text{APT}} = 1 + \operatorname{CRITBINOM}\!\left(W,\, 2^{-H},\, 1 - 2^{-20}\right), \quad W = 512.
 \end{equation}
-La RCT falla si un mismo valor se repite $C_{\text{RCT}}$ veces seguidas. La APT falla si, en una ventana de $W$ muestras, el primer valor aparece $C_{\text{APT}}$ veces o más. Para $H = 1$, los umbrales son 21 y 311.Para $H = 4$, los umbrales son 6 y 62, el mayor valor tabulado: un valor acreditado mayor que 4 se trata como 4. Una falla se reporta como \texttt{HealthError} en lugar de producir bytes de baja entropía en silencio. Estas pruebas detectan una fuente atascada o degradada, pero no pueden detectar una fuente que varía de forma completamente determinística, como la referencia en un microcontrolador: ese modo de falla tiene que eliminarse en el diseño, eligiendo una fuente físicamente independiente.
+La RCT falla si un mismo valor se repite $C_{\text{RCT}}$ veces seguidas. La APT falla si, en una ventana de $W$ muestras, el primer valor aparece $C_{\text{APT}}$ veces o más. Para $H = 1$, los umbrales son 21 y 311. Para $H = 4$, los umbrales son 6 y 62, el mayor valor tabulado: un valor acreditado mayor que 4 se trata como 4. Una falla se reporta como \texttt{HealthError} en lugar de producir bytes de baja entropía en silencio. Estas pruebas detectan una fuente atascada o degradada, pero no pueden detectar una fuente que varía de forma completamente determinística, como la referencia en un microcontrolador: ese modo de falla tiene que eliminarse en el diseño, eligiendo una fuente físicamente independiente.
 
 \subsection{Contabilidad de entropía}
 
@@ -284,7 +284,7 @@ En el ATmega2560, la referencia gasta en promedio unos 1\,090 ciclos por índice
 \section{Fuentes físicas por plataforma}
 \label{sec:fuentes}
 
-\paragraph{AVR: perro guardián contra Timer1.} El perro guardián de los ATmega se alimenta de un oscilador RC interno de 128 kHz, independiente del cristal de 16 MHz que alimenta la CPU y el Timer1. La fuente configura el perro guardián en modo de solo interrupción con su periodo más corto (alrededor de 16 ms) y, en cada interrupción, guarda la lectura del Timer1 en un búfer circular de 16 posiciones. La muestra es la diferencia entre dos marcas de tiempo, es decir, el periodo del oscilador RC medido en ciclos del cristal. Se espera que el ruido de fase térmico del oscilador RC se acumule durante el periodo y aparece en los bits bajos de la medición.
+\paragraph{AVR: perro guardián contra Timer1.} El perro guardián de los ATmega se alimenta de un oscilador RC interno de 128 kHz, independiente del cristal de 16 MHz que alimenta la CPU y el Timer1. La fuente configura el perro guardián en modo de solo interrupción con su periodo más corto (alrededor de 16 ms) y, en cada interrupción, guarda la lectura del Timer1 en un búfer circular de 16 posiciones. La muestra es la diferencia entre dos marcas de tiempo, es decir, el periodo del oscilador RC medido en ciclos del cristal. Se espera que el ruido de fase térmico del oscilador RC se acumule durante el periodo y aparezca en los bits bajos de la medición
 
 \paragraph{nRF52840: generador en hardware.} El nRF52840 incluye un periférico RNG basado en ruido térmico, con corrección de sesgo. Se evaluó también una fuente análoga a la de AVR (el RTC alimentado por el oscilador LFRC de 32.768 kHz contra el contador de ciclos), pero su min-entropía resultó baja (Sección~\ref{sec:res_fuentes}), y se prefirió el periférico RNG, que la variante IoT usa como \texttt{JitterSource}.
 

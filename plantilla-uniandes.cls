@@ -430,7 +430,7 @@
 
 %%-----------------------------------------------------------------------------
 %% Bibliografia
-%%   "Cada referencia bibliografica se inicia contra el margen izquierdo".
+%%   "Cada referencia bibliográfica se inicia contra el margen izquierdo".
 %%   Se elimina el titulo automatico: el titulo lo pone \tituloPreliminar.
 %%-----------------------------------------------------------------------------
 \renewenvironment{thebibliography}[1]{%

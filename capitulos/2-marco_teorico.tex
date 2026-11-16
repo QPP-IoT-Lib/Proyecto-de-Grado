@@ -1,20 +1,20 @@
 
 %%=============================================================================
-%% MARCO TEORICO
+%% MARCO TEÓRICO
 %%=============================================================================
 \chapter{Marco teórico}
 
-El presente capítulo desarrolla los conceptos teóricos necesarios para comprender el diseño, implementación y evaluación de una librería criptográfica ligera basada en QPP-RNG para dispositivos IoT críticos. Mientras el capítulo anterior presentó una revisión del estado del arte, este capítulo formaliza los fundamentos técnicos que sustentan la investigación: restricciones computacionales en dispositivos embebidos, principios de seguridad criptográfica, generación de números aleatorios, medidas de entropía, pruebas estadísticas de aleatoriedad, cifrado autenticado, ASCON, Quantum Permutation Pad, QPP-RNG, Rust y métricas de evaluación experimental.
+El presente capítulo desarrolla los conceptos teóricos necesarios para comprender el diseño, la implementación y la evaluación de una librería criptográfica ligera basada en QPP-RNG para dispositivos IoT críticos. Mientras que el capítulo anterior presentó una revisión del estado del arte, este capítulo formaliza los fundamentos técnicos que sustentan la investigación: restricciones computacionales en dispositivos embebidos, principios de seguridad criptográfica, generación de números aleatorios, medidas de entropía, pruebas estadísticas de aleatoriedad, cifrado autenticado, ASCON, Quantum Permutation Pad (QPP), QPP-RNG, Rust y métricas de evaluación experimental.
 
-La tesis se ubica en la intersección entre tres áreas principales: criptografía ligera, generación de entropía y seguridad de software para sistemas embebidos. Esta combinación exige considerar tanto propiedades matemáticas como restricciones prácticas de implementación. Por una parte, un mecanismo criptográfico debe ofrecer garantías de confidencialidad, integridad y autenticidad. Por otra, debe operar eficientemente en plataformas con recursos limitados. Finalmente, debe implementarse en un lenguaje y arquitectura de software que reduzcan errores comunes asociados al manejo inseguro de memoria, condiciones de carrera o dependencias no verificadas.
+La tesis se ubica en la intersección de tres áreas principales: criptografía ligera, generación de entropía y seguridad del software para sistemas embebidos. Esta combinación exige considerar tanto las propiedades matemáticas como las restricciones prácticas de implementación. Por un lado, un mecanismo criptográfico debe ofrecer garantías de confidencialidad, integridad y autenticidad. Por otra parte, debe operar de manera eficiente en plataformas con recursos limitados. Finalmente, debe implementarse en un lenguaje y una arquitectura de software que reduzcan los errores comunes asociados al manejo inseguro de la memoria, a las condiciones de carrera o a las dependencias no verificadas.
 
 \section{Dispositivos IoT con recursos restringidos}
 
-Un dispositivo IoT con recursos restringidos puede definirse como un sistema computacional embebido diseñado para ejecutar una función específica, generalmente mediante sensores, actuadores o módulos de comunicación, bajo limitaciones severas de memoria, capacidad de procesamiento, almacenamiento y consumo energético \cite{Seyhan2022ClassificationTaxonomy,Dhanda2020LightweightIoT}. A diferencia de un computador convencional, estos dispositivos no están diseñados para ejecutar múltiples aplicaciones arbitrarias, sino para cumplir tareas concretas dentro de una arquitectura distribuida.
+Un dispositivo IoT con recursos restringidos puede definirse como un sistema computacional embebido diseñado para ejecutar una función específica, generalmente mediante sensores, actuadores o módulos de comunicación, bajo limitaciones severas de memoria, capacidad de procesamiento, almacenamiento y consumo energético \cite{Seyhan2022ClassificationTaxonomy,Dhanda2020LightweightIoT}. A diferencia de un computador convencional, estos dispositivos no están diseñados para ejecutar múltiples aplicaciones arbitrarias, sino para realizar tareas concretas dentro de una arquitectura distribuida.
 
-Las restricciones más relevantes para esta investigación se relacionan con las limitaciones propias de los dispositivos IoT. En primer lugar, la memoria RAM disponible suele ser de apenas unos pocos kilobytes, lo que restringe el tamaño de los buffers, los estados criptográficos y las estructuras auxiliares que pueden utilizarse. Asimismo, la memoria Flash es limitada, por lo que el firmware debe mantenerse lo más compacto posible y las bibliotecas criptográficas no pueden depender de implementaciones excesivamente pesadas. A ello se suma la reducida capacidad de procesamiento de estos dispositivos, ya que la baja frecuencia del procesador y la ausencia de unidades especializadas pueden incrementar el tiempo necesario para ejecutar operaciones criptográficas. También existen importantes restricciones energéticas, debido a que muchos dispositivos funcionan con baterías y deben operar durante largos periodos de tiempo sin requerir mantenimiento. Finalmente, la conectividad suele estar limitada por los protocolos de comunicación utilizados, los cuales pueden imponer restricciones en el ancho de banda, el tamaño de los paquetes, la latencia y el consumo energético asociado a cada transmisión.
+Las restricciones más relevantes para esta investigación se derivan de las limitaciones propias de los dispositivos IoT. En primer lugar, la memoria RAM disponible suele ser de apenas unos pocos kilobytes, lo que limita el tamaño de los buffers, los estados criptográficos y las estructuras auxiliares que pueden utilizarse. Asimismo, la memoria Flash es limitada, por lo que el firmware debe mantenerse lo más compacto posible y las bibliotecas criptográficas no pueden depender de implementaciones excesivamente pesadas. A ello se suma la reducida capacidad de procesamiento de estos dispositivos, ya que la baja frecuencia del procesador y la ausencia de unidades especializadas pueden incrementar el tiempo necesario para ejecutar operaciones criptográficas. También existen importantes restricciones energéticas, debido a que muchos dispositivos funcionan con baterías y deben operar durante largos periodos de tiempo sin requerir mantenimiento. Finalmente, la conectividad suele estar limitada por los protocolos de comunicación utilizados, que pueden imponer restricciones en el ancho de banda, el tamaño de los paquetes, la latencia y el consumo energético asociado a cada transmisión.
 
-Estas restricciones condicionan directamente el diseño criptográfico. Un algoritmo seguro en teoría puede resultar poco práctico si requiere demasiada memoria, si incrementa significativamente el tiempo de respuesta o si reduce la vida útil de la batería. Por esta razón, la seguridad en IoT debe evaluarse como un equilibrio entre robustez criptográfica y viabilidad computacional.
+Estas restricciones condicionan directamente el diseño criptográfico. Un algoritmo seguro en teoría puede resultar poco práctico si requiere demasiada memoria, si incrementa significativamente el tiempo de respuesta o si reduce la vida útil de la batería. Por esta razón, la seguridad en IoT debe evaluarse como un equilibrio entre la robustez criptográfica y la viabilidad computacional.
 
 \begin{table}[H]
 \centering
@@ -33,15 +33,15 @@ Comunicación & Paquetes pequeños y bajo ancho de banda & Favorece esquemas con
 \end{tabularx}
 \end{table}
 
-En este contexto, la criptografía ligera busca diseñar algoritmos y protocolos que reduzcan el consumo de recursos sin renunciar a propiedades esenciales de seguridad. Sin embargo, la eficiencia del algoritmo de cifrado no es suficiente. También se requiere una fuente confiable de entropía para generar claves, nonces y semillas criptográficas.
+En este contexto, la criptografía ligera busca diseñar algoritmos y protocolos que reduzcan el consumo de recursos sin renunciar a las propiedades esenciales de seguridad. Sin embargo, la eficiencia del algoritmo de cifrado no es suficiente. También se requiere una fuente de entropía confiable para generar claves, nonces y semillas criptográficas.
 
 \section{Propiedades fundamentales de seguridad criptográfica}
 
-La criptografía moderna busca garantizar un conjunto de propiedades de seguridad que permiten proteger la información frente a adversarios con distintas capacidades. En el contexto de IoT crítico, las propiedades más relevantes son confidencialidad, integridad, autenticidad, frescura e impredecibilidad.
+La criptografía moderna busca garantizar un conjunto de propiedades de seguridad que permiten proteger la información frente a adversarios con distintas capacidades. En el contexto del IoT crítico, las propiedades más relevantes son la confidencialidad, la integridad, la autenticidad, la frescura y la impredecibilidad.
 
 \subsection{Confidencialidad}
 
-La confidencialidad garantiza que un adversario no pueda obtener información significativa sobre el mensaje original a partir del texto cifrado. Formalmente, un esquema de cifrado seguro debe impedir que un atacante distinga entre el cifrado de dos mensajes de su elección con probabilidad significativamente mayor que el azar \cite{Katz2020IntroductionCryptography}.
+La confidencialidad garantiza que un adversario no pueda obtener información significativa sobre el mensaje original a partir del texto cifrado. Formalmente, un esquema de cifrado seguro debe impedir que un atacante distinga entre el cifrado de dos mensajes de su elección con una probabilidad significativamente mayor que la del azar \cite{Katz2020IntroductionCryptography}.
 
 Sea $M$ un mensaje en texto plano, $K$ una clave secreta y $C$ el texto cifrado. Un esquema de cifrado simétrico puede representarse como:
 
@@ -61,46 +61,46 @@ Para que el esquema sea correcto, debe cumplirse:
     \text{Dec}_{K}(\text{Enc}_{K}(M)) = M
 \end{equation}
 
-No obstante, la corrección no implica seguridad. Un esquema puede descifrar correctamente y aun así filtrar patrones del mensaje. Por esta razón, los esquemas modernos incorporan nonces, modos de operación seguros y mecanismos de autenticación.
+No obstante, la corrección no implica seguridad. Un esquema puede descifrar correctamente y, aun así, filtrar patrones del mensaje. Por esta razón, los esquemas modernos incorporan nonces, modos de operación seguros y mecanismos de autenticación.
 
 \subsection{Integridad}
 
-La integridad garantiza que la información no haya sido modificada de manera no autorizada \cite{Stallings2023CryptographyPractice}. En sistemas IoT, esta propiedad es crítica porque un atacante no necesariamente necesita leer los mensajes para causar daño. En muchos casos basta con alterar mediciones, comandos o parámetros de control.
+La integridad garantiza que la información no haya sido modificada de manera no autorizada \cite{Stallings2023CryptographyPractice}. En sistemas IoT, esta propiedad es crítica porque un atacante no necesita necesariamente leer los mensajes para causar daño. En muchos casos basta con alterar mediciones, comandos o parámetros de control.
 
-Por ejemplo, en un sistema de monitoreo industrial, modificar una lectura de temperatura o presión puede inducir decisiones incorrectas. En un sistema médico, alterar datos fisiológicos puede afectar la seguridad del paciente. Por tanto, la integridad es tan importante como la confidencialidad.
+Por ejemplo, en un sistema de monitoreo industrial, modificar una lectura de temperatura o de presión puede inducir a tomar decisiones incorrectas. En un sistema médico, alterar los datos fisiológicos puede comprometer la seguridad del paciente. Por tanto, la integridad es tan importante como la confidencialidad.
 
 \subsection{Autenticidad}
 
-La autenticidad permite verificar que un mensaje fue generado por una entidad legítima. En IoT, esta propiedad evita que un atacante introduzca nodos falsos o envíe comandos no autorizados a actuadores. La autenticación puede implementarse mediante códigos de autenticación de mensajes, firmas digitales o esquemas AEAD \cite{Menezes1996HandbookCryptography}.
+La autenticidad permite verificar que un mensaje fue generado por una entidad legítima. En IoT, esta propiedad evita que un atacante introduzca nodos falsos o envíe comandos no autorizados a los actuadores. La autenticación puede implementarse mediante códigos de autenticación de mensajes, firmas digitales o esquemas AEAD \cite{Menezes1996HandbookCryptography}.
 
 \subsection{Frescura y protección contra repetición}
 
 La frescura garantiza que un mensaje corresponde a una ejecución reciente del protocolo y no a una transmisión antigua reutilizada por un adversario. Esta propiedad se relaciona con la protección contra ataques de repetición. Para lograrla, se utilizan nonces, contadores, marcas de tiempo o identificadores de sesión.
 
-En criptografía simétrica moderna, un nonce es un valor que debe ser único dentro de un contexto determinado. No necesariamente tiene que ser secreto, pero su reutilización bajo una misma clave puede comprometer la seguridad del esquema. Por esta razón, la generación y administración de nonces es un componente esencial dentro de la arquitectura criptográfica.
+En la criptografía simétrica moderna, un nonce es un valor que debe ser único dentro de un contexto determinado. No necesariamente tiene que ser secreto, pero su reutilización con la misma clave puede comprometer la seguridad del esquema. Por esta razón, la generación y la administración de nonces constituyen un componente esencial de la arquitectura criptográfica.
 
 \subsection{Impredecibilidad}
 
-La impredecibilidad se refiere a la incapacidad de un adversario para anticipar valores criptográficos futuros, tales como claves, semillas, nonces aleatorios o desafíos de autenticación. Esta propiedad depende directamente de la calidad de la fuente de entropía utilizada por el sistema.
+La impredecibilidad se refiere a la incapacidad de un adversario para predecir valores criptográficos futuros, tales como claves, semillas, nonces aleatorios o desafíos de autenticación. Esta propiedad depende directamente de la calidad de la fuente de entropía utilizada por el sistema.
 
-En esta tesis, la impredecibilidad es una propiedad central, dado que QPP-RNG se evalúa como mecanismo para producir material aleatorio adecuado para criptografía ligera en dispositivos IoT críticos.
+En esta tesis, la impredecibilidad es una propiedad central, dado que QPP-RNG se evalúa como mecanismo para generar material aleatorio adecuado para criptografía ligera en dispositivos IoT críticos.
 
 \section{Aleatoriedad y entropía}
 \label{sec:aleatoriedad_entropia}
 
-La aleatoriedad es un concepto fundamental en criptografía. La seguridad de claves, semillas, nonces, vectores de inicialización y parámetros efímeros depende de que estos valores sean suficientemente impredecibles. Una fuente de aleatoriedad deficiente puede comprometer incluso algoritmos criptográficos robustos.
+La aleatoriedad es un concepto fundamental en criptografía. La seguridad de claves, semillas, nonces, vectores de inicialización y parámetros efímeros depende de que estos valores sean lo suficientemente impredecibles. Una fuente de aleatoriedad deficiente puede comprometer incluso algoritmos criptográficos robustos.
 
 \subsection{Variable aleatoria discreta}
 
-Sea $X$ una variable aleatoria discreta definida sobre un espacio finito $\mathcal{X}$. Cada posible valor $x \in \mathcal{X}$ tiene asociada una probabilidad $P(X=x)$. En criptografía, puede interpretarse $X$ como el valor producido por una fuente de entropía, por ejemplo un byte, una clave o una semilla \cite{Shannon1949CommunicationSystems}.
+Sea $X$ una variable aleatoria discreta definida sobre un espacio finito $\mathcal{X}$. Cada posible valor $x \in \mathcal{X}$ tiene asociada una probabilidad $P(X=x)$. En criptografía, $X$ puede interpretarse como el valor generado por una fuente de entropía, por ejemplo, un byte, una clave o una semilla \cite{Shannon1949CommunicationSystems}.
 
-Cuando todos los valores posibles son igualmente probables, se dice que la distribución es uniforme. Para un byte aleatorio ideal, el espacio de valores posibles tiene tamaño $256$, y cada valor ocurre con probabilidad:
+Cuando todos los valores posibles tienen la misma probabilidad, se dice que la distribución es uniforme. Para un byte aleatorio ideal, el espacio de valores posibles tiene tamaño $256$, y cada valor ocurre con probabilidad:
 
 \begin{equation}
     P(X=x) = \frac{1}{256}
 \end{equation}
 
-En este caso, cada byte contiene idealmente $8$ bits de incertidumbre.
+En este caso, cada byte contiene, idealmente, $8$ bits de incertidumbre.
 
 \subsection{Entropía de Shannon}
 
@@ -122,17 +122,17 @@ Para un byte uniforme, $N=256$, por lo que:
     H(X) = \log_2 256 = 8
 \end{equation}
 
-La entropía de Shannon es útil para analizar la incertidumbre promedio, pero en criptografía no siempre es suficiente porque un adversario puede explotar el valor más probable de una distribución.
+La entropía de Shannon es útil para medir la incertidumbre promedio, pero en criptografía no siempre es suficiente, ya que un adversario puede explotar el valor más probable de una distribución.
 
 \subsection{Min-Entropía}
 
-La min-entropía mide la dificultad de adivinar el valor más probable producido por una fuente \cite{Turan2018RecommendationGeneration}. Se define como:
+La min-entropía mide la dificultad de adivinar el valor más probable que produce una fuente \cite{Turan2018RecommendationGeneration}. Se define como:
 
 \begin{equation}
     H_{\infty}(X) = -\log_2\left(\max_{x \in \mathcal{X}} P(X=x)\right)
 \end{equation}
 
-Esta medida es especialmente relevante en criptografía porque representa un límite conservador sobre la incertidumbre disponible. Si un valor específico ocurre con probabilidad alta, la min-entropía disminuye, incluso si la entropía promedio parece aceptable.
+Esta medida es especialmente relevante en criptografía porque establece un límite conservador a la incertidumbre disponible. Si un valor específico ocurre con alta probabilidad, la min-entropía disminuye, incluso si la entropía promedio parece aceptable.
 
 Para un byte idealmente uniforme:
 
@@ -146,15 +146,15 @@ En cambio, si el valor más probable aparece con probabilidad $1/16$, la min-ent
     H_{\infty}(X) = -\log_2\left(\frac{1}{16}\right) = 4
 \end{equation}
 
-Esto significa que, desde la perspectiva de un atacante, la fuente ofrece como máximo $4$ bits de incertidumbre efectiva por muestra.
+Esto significa que, desde la perspectiva de un atacante, la fuente ofrece, como máximo, $4$ bits de incertidumbre efectiva por muestra.
 
 \subsection{Sesgo y correlación}
 
 Una fuente aleatoria puede presentar sesgo cuando algunos valores ocurren con mayor frecuencia que otros. También puede presentar correlación cuando la aparición de un valor depende de valores anteriores. Ambos fenómenos reducen la utilidad criptográfica de la fuente.
 
-Sea $(X_1, X_2, \ldots, X_n)$ una secuencia producida por una fuente. Idealmente, los valores deberían ser independientes e idénticamente distribuidos. Sin embargo, en fuentes reales pueden existir dependencias temporales. Por ejemplo, en una fuente basada en temporizadores, las variaciones pueden estar influenciadas por la frecuencia del procesador, interrupciones periódicas o comportamiento del sistema operativo.
+Sea $(X_1, X_2, \ldots, X_n)$ una secuencia producida por una fuente. Idealmente, los valores deberían ser independientes e idénticamente distribuidos. Sin embargo, en fuentes reales pueden existir dependencias temporales. Por ejemplo, en una fuente basada en temporizadores, las variaciones pueden verse influidas por la frecuencia del procesador, las interrupciones periódicas o el comportamiento del sistema operativo.
 
-Por esta razón, la evaluación de una fuente de entropía no debe limitarse a calcular frecuencias. Debe incluir pruebas de independencia, análisis de correlación y estimación conservadora de min-entropía.
+Por esta razón, la evaluación de una fuente de entropía no debe limitarse a calcular las frecuencias. Debe incluir pruebas de independencia, análisis de correlación y una estimación conservadora de min-entropía.
 
 \section{Generadores de números aleatorios}
 \label{sec:generadores_rng}
@@ -163,19 +163,19 @@ Los generadores de números aleatorios pueden clasificarse en generadores verdad
 
 \subsection{\textit{True Random Number Generators}}
 
-Un \textit{True Random Number Generator} (TRNG) obtiene aleatoriedad a partir de fenómenos físicos no determinísticos \cite{Barker2015RecommendationGenerators}. Algunos ejemplos incluyen ruido térmico, osciladores de anillo, fluctuaciones eléctricas, ruido cuántico o variaciones ambientales.
+Un \textit{True Random Number Generator} (TRNG) obtiene aleatoriedad a partir de fenómenos físicos no determinísticos \cite{Barker2015RecommendationGenerators}. Algunos ejemplos incluyen el ruido térmico, los osciladores de anillo, las fluctuaciones eléctricas, el ruido cuántico o las variaciones ambientales.
 
-La principal ventaja de un TRNG es que puede producir entropía real. Sin embargo, también presenta limitaciones, como la necesidad de utilizar hardware especializado o ser calibrado y monitoreado continuamente, el incremento en el costo del dispositivo, la falta de disponibilidad en microcontroladores económicos, entre otros.
+La principal ventaja de un TRNG es que puede generar entropía real. Sin embargo, también presenta limitaciones, como la necesidad de utilizar hardware especializado o de ser calibrado y monitoreado continuamente, el incremento del costo del dispositivo, la falta de disponibilidad en microcontroladores económicos, entre otras.
 
 \subsection{\textit{Pseudo Random Number Generators}}
 
-Un \textit{Pseudo Random Number Generator} (PRNG) produce secuencias aparentemente aleatorias a partir de una semilla inicial \cite{Katz2020IntroductionCryptography}. Dado que el proceso es determinístico, la misma semilla produce siempre la misma secuencia.
+Un \textit{Pseudo Random Number Generator} (PRNG) produce secuencias aparentemente aleatorias a partir de una semilla inicial \cite{Katz2020IntroductionCryptography}. Dado que el proceso es determinístico, la misma semilla siempre produce la misma secuencia.
 
 Un PRNG convencional puede ser útil para simulaciones o pruebas, pero no necesariamente es seguro para criptografía. Si un atacante conoce o recupera la semilla, puede reconstruir toda la secuencia. Por tanto, en contextos criptográficos se requieren generadores con propiedades adicionales.
 
 \subsection{\textit{Cryptographically Secure Pseudo Random Number Generators}}
 
-Un \textit{Cryptographically Secure Pseudo Random Number Generator} (CSPRNG) está diseñado para resistir predicción adversarial \cite{Barker2015RecommendationGenerators}. En términos generales, debe cumplir dos propiedades:
+Un \textit{Cryptographically Secure Pseudo-Random Number Generator} (CSPRNG) está diseñado para resistir la predicción por parte de un adversario \cite{Barker2015RecommendationGenerators}. En términos generales, debe cumplir dos propiedades:
 
 \begin{itemize}
     \item \textbf{Indistinguibilidad:} su salida debe ser computacionalmente indistinguible de una secuencia aleatoria ideal.
@@ -186,7 +186,7 @@ La seguridad de un CSPRNG depende críticamente de la calidad de la semilla inic
 
 \subsection{Acondicionamiento de entropía}
 
-Las fuentes físicas o de software pueden producir datos con sesgo o correlación. El acondicionamiento de entropía busca transformar estas muestras crudas en una salida con mejores propiedades estadísticas. Este proceso puede implementarse mediante funciones hash criptográficas, construcciones tipo extractor, mezclas no lineales o mecanismos basados en cifrado.
+Las fuentes físicas o de software pueden producir datos sesgados o correlacionados. El acondicionamiento de entropía busca transformar estas muestras crudas en una salida con mejores propiedades estadísticas. Este proceso puede implementarse mediante funciones hash criptográficas, construcciones del tipo extractor, mezclas no lineales o mecanismos basados en el cifrado.
 
 De manera general, puede representarse como:
 
@@ -194,7 +194,7 @@ De manera general, puede representarse como:
     Y = \text{Cond}(X_1, X_2, \ldots, X_n)
 \end{equation}
 
-donde $X_i$ son muestras crudas de la fuente y $Y$ es la salida acondicionada. El acondicionamiento no crea entropía de la nada, su función es concentrar y distribuir la entropía existente en la entrada.
+donde $X_i$ son muestras crudas de la fuente y $Y$ es la salida acondicionada. El acondicionamiento no crea entropía de la nada; su función es concentrar y distribuir la entropía existente en la entrada.
 
 \begin{table}[H]
 \centering
@@ -219,19 +219,19 @@ La evaluación de un generador de números aleatorios requiere analizar si las s
 
 \subsection{NIST SP 800-22}
 
-NIST SP 800-22 es una suite de pruebas estadísticas para secuencias binarias \cite{Rukhin2010AApplications}. Su objetivo es detectar desviaciones respecto al comportamiento esperado de una fuente aleatoria ideal. Entre las pruebas más conocidas se encuentran la prueba de frecuencia monobit, la prueba de frecuencia por bloques, la prueba de rachas, la prueba de racha más larga de unos, la prueba de transformada rápida de Fourier, la prueba serial, la prueba de entropía aproximada y la prueba de complejidad lineal.
+NIST SP 800-22 es una suite de pruebas estadísticas para secuencias binarias \cite{Rukhin2010AApplications}. Su objetivo es detectar desviaciones respecto del comportamiento esperado de una fuente aleatoria ideal. Entre las pruebas más conocidas se encuentran la prueba de frecuencia monobit, la prueba de frecuencia por bloques, la prueba de rachas, la prueba de la racha más larga de unos, la prueba de la transformada rápida de Fourier, la prueba serial, la prueba de entropía aproximada y la prueba de complejidad lineal.
 
-Cada prueba produce normalmente un $p$-valor, que representa la probabilidad de observar una desviación igual o mayor bajo la hipótesis de aleatoriedad. Si el $p$-valor es menor que un umbral de significancia $\alpha$, la secuencia puede rechazarse para esa prueba.
+Cada prueba produce un $p$-valor, que representa la probabilidad de observar una desviación igual o mayor bajo la hipótesis nula. Si el $p$-valor es menor que el umbral de significancia $\alpha$, la hipótesis nula puede rechazarse en esa prueba.
 
-Por ejemplo, si $\alpha = 0.01$, entonces se espera que aproximadamente el $1\%$ de secuencias verdaderamente aleatorias fallen una prueba por azar. Por esta razón, la interpretación debe considerar tanto la proporción de secuencias aprobadas como la distribución de valores-$p$.
+Por ejemplo, si $\alpha = 0.01$, entonces se espera que aproximadamente el $1\%$ de las secuencias verdaderamente aleatorias fallen una prueba por azar. Por esta razón, la interpretación debe considerar tanto la proporción de secuencias aprobadas como la distribución de valores-$p$.
 
 \subsection{NIST SP 800-90B}
 
-NIST SP 800-90B se enfoca en la evaluación de fuentes de entropía \cite{Turan2018RecommendationGeneration}. A diferencia de SP 800-22, cuyo propósito principal es detectar patrones estadísticos, SP 800-90B busca estimar de manera conservadora la cantidad de entropía disponible en una fuente.
+NIST SP 800-90B se enfoca en la evaluación de las fuentes de entropía \cite{Turan2018RecommendationGeneration}. A diferencia de SP 800-22, cuyo propósito principal es detectar patrones estadísticos, SP 800-90B busca estimar de manera conservadora la cantidad de entropía disponible en una fuente.
 
-La metodología distingue entre fuentes independientes e idénticamente distribuidas y fuentes no independientes. Esta distinción es importante porque muchas fuentes reales, especialmente aquellas basadas en eventos físicos o temporales, pueden presentar dependencia entre muestras.
+La metodología distingue entre fuentes independientes e idénticamente distribuidas y fuentes no independientes. Esta distinción es importante porque muchas fuentes reales, especialmente aquellas basadas en eventos físicos o temporales, pueden presentar dependencia entre las muestras.
 
-La salida principal del análisis es una estimación de min-entropía por muestra. Esta estimación permite determinar cuántos bits de incertidumbre pueden atribuirse de manera conservadora a la fuente. En el contexto de QPP-RNG, esta métrica resulta central para determinar cuánta entropía aporta la fuente de ruido (en la variante propuesta, un oscilador físico); no se aplica a la salida acondicionada, cuya entropía se deriva de la entrada y de la función de acondicionamiento.
+La salida principal del análisis es una estimación de min-entropía por muestra. Esta estimación permite determinar cuántos bits de incertidumbre pueden atribuirse, de manera conservadora, a la fuente. En el contexto de QPP-RNG, esta métrica resulta central para determinar cuánta entropía aporta la fuente de ruido (en la variante propuesta, un oscilador físico); no se aplica a la salida acondicionada, cuya entropía se deriva de la entrada y de la función de acondicionamiento.
 
 \subsection{ENT}
 
@@ -240,15 +240,15 @@ Una secuencia ideal de bytes aleatorios debería aproximarse a $8$ bits de entro
 
 \subsection{Interpretación conjunta de pruebas}
 
-Superar una batería de pruebas estadísticas no demuestra de manera absoluta que una fuente sea segura. Las pruebas pueden detectar ciertos patrones, pero no prueban impredecibilidad frente a todos los adversarios posibles. Por esta razón, en criptografía es necesario combinar el análisis estadístico de la salida, la estimación de min-entropía, la revisión del modelo de amenaza, el análisis de implementación, las pruebas de desempeño y la evaluación de portabilidad.
+Superar una batería de pruebas estadísticas no demuestra de manera absoluta que una fuente sea segura. Las pruebas pueden detectar ciertos patrones, pero no garantizan la impredecibilidad frente a todos los posibles adversarios. Por esta razón, en criptografía es necesario combinar el análisis estadístico de la salida, la estimación de min-entropía, la revisión del modelo de amenaza, el análisis de implementación, las pruebas de desempeño y la evaluación de la portabilidad.
 
-La presente investigación adopta este enfoque integral: no evalúa QPP-RNG únicamente por la apariencia estadística de sus secuencias, sino también por su viabilidad como componente dentro de una librería criptográfica ligera.
+El presente trabajo adopta un enfoque integral: no evalúa QPP-RNG únicamente por la apariencia estadística de sus secuencias, sino también por su viabilidad como componente de una librería criptográfica ligera.
 
 
 \section{Cifrado autenticado con datos asociados}
 \label{sec:aead}
 
-El cifrado autenticado con datos asociados, conocido como AEAD por sus siglas en inglés, es una construcción criptográfica que proporciona simultáneamente confidencialidad, integridad y autenticidad \cite{Katz2020IntroductionCryptography}. En entornos IoT, AEAD resulta especialmente útil porque permite proteger la carga útil de los mensajes y autenticar metadatos que deben permanecer visibles para el protocolo de comunicación.
+El cifrado autenticado con datos asociados, conocido como AEAD por sus siglas en inglés, es una construcción criptográfica que proporciona simultáneamente confidencialidad, integridad y autenticidad \cite{Katz2020IntroductionCryptography}. En entornos IoT, AEAD resulta especialmente útil porque permite proteger la carga útil de los mensajes y autenticar los metadatos que deben permanecer visibles para el protocolo de comunicación.
 
 Un esquema AEAD recibe como entrada una clave secreta $K$, un \textit{nonce} $N$, datos asociados $A$, y un mensaje en texto plano $M$.
 
@@ -270,20 +270,20 @@ Los datos asociados $A$ no se cifran, pero sí se autentican. Esto permite prote
 
 \subsection{Importancia del nonce}
 
-El nonce es un valor que debe ser único para cada operación bajo una misma clave. En muchos esquemas AEAD, reutilizar un nonce puede comprometer gravemente la seguridad. Por esta razón, la generación y administración de nonces es una tarea crítica.
+El nonce es un valor que debe ser único para cada operación bajo la misma clave. En muchos esquemas AEAD, reutilizar un nonce puede comprometer gravemente la seguridad. Por esta razón, la generación y la administración de nonces son tareas críticas.
 
 Existen dos estrategias generales. Los \textit{nonces} determinísticos, que se generan mediante contadores o identificadores de sesión y los \textit{nonces} aleatorios, que se generan mediante una fuente de aleatoriedad.
 
-Los \textit{nonces} determinísticos reducen la dependencia de la fuente aleatoria, pero requieren almacenamiento persistente y protección contra reinicios o desincronización. Los \textit{nonces} aleatorios simplifican algunos diseños, pero dependen de un RNG robusto. En ambos casos, la generación de entropía continúa siendo relevante para claves y semillas.
+Los \textit{nonces} determinísticos reducen la dependencia de una fuente de aleatoriedad, pero requieren almacenamiento persistente y protección contra reinicios o desincronización. Los \textit{nonces} aleatorios simplifican algunos diseños, pero dependen de un RNG robusto. En ambos casos, la generación de entropía sigue siendo relevante para claves y semillas.
 
 \section{ASCON}
 \label{sec:ascon}
 
-ASCON es una familia de algoritmos de criptografía ligera diseñada para cifrado autenticado, hashing y funciones extendibles \cite{Dobraunig2021AsconHashing,Dobraunig2021AsconProcess}. Su selección como referente de criptografía ligera se debe a su balance entre seguridad, eficiencia y facilidad de implementación en plataformas restringidas \cite{Turan2025Ascon-BasedFunctions}.
+ASCON es una familia de algoritmos de criptografía ligera diseñada para cifrado autenticado, hashing y funciones extendibles \cite{Dobraunig2021AsconHashing,Dobraunig2021AsconProcess}. Su selección como referente en criptografía ligera se debe al equilibrio entre seguridad, eficiencia y facilidad de implementación en plataformas con recursos limitados \cite{Turan2025Ascon-BasedFunctions}.
 
 \subsection{Construcción tipo esponja}
 
-ASCON se basa en una construcción tipo esponja, la misma familia de construcciones sobre la cual se define el estándar SHA-3 \cite{Dworkin2015SHA-3Functions,Bertoni2007SpongeFunctions}. En términos generales, una esponja criptográfica mantiene un estado interno dividido en dos partes: una tasa $r$ y una capacidad $c$. La tasa determina cuántos bits se absorben o extraen por iteración, mientras que la capacidad está relacionada con el nivel de seguridad.
+ASCON se basa en una construcción tipo esponja, la misma familia de construcciones sobre la cual se define el estándar SHA-3 \cite{Dworkin2015SHA-3Functions,Bertoni2007SpongeFunctions}. En términos generales, una esponja criptográfica mantiene un estado interno dividido en dos partes: una tasa $r$ y una capacidad $c$. La tasa determina cuántos bits se absorben o se extraen por iteración, mientras que la capacidad está relacionada con el nivel de seguridad.
 
 El estado total puede expresarse como:
 
@@ -291,26 +291,26 @@ El estado total puede expresarse como:
     b = r + c
 \end{equation}
 
-El funcionamiento general se divide en dos fases. La primera es la fase de absorción, donde la entrada se divide en bloques y se incorpora al estado mediante operaciones XOR y permutaciones internas. La segunda es la fase de extracción, donde la salida se obtiene a partir de la parte de la tasa del estado, aplicando permutaciones adicionales si se requiere más salida.
+El funcionamiento general se divide en dos fases. La primera es la fase de absorción, en la que la entrada se divide en bloques y se incorpora al estado mediante operaciones XOR y permutaciones internas. La segunda es la fase de extracción, en la que la salida se obtiene a partir de la parte de la tasa del estado, aplicando permutaciones adicionales si se requiere más salida.
 
-La seguridad de este tipo de construcciones depende de la permutación interna, del tamaño de la capacidad y de la correcta separación de dominios entre modos de uso.
+La seguridad de este tipo de construcciones depende de la permutación interna, del tamaño de la capacidad y de la correcta separación de dominios entre los modos de uso.
 
 \subsection{AEAD en ASCON}
 
-En el modo de cifrado autenticado, ASCON procesa la clave, el \textit{nonce}, los datos asociados y el mensaje mediante una secuencia de inicialización, absorción, cifrado y finalización. Conceptualmente, el proceso es el siguiente: primero se debe inicializar el estado con una clave, \textit{nonce} y constantes. En segundo lugar, se debe aplicar la permutación interna, para posteriormente absorber los datos asociados. Luego se cifra el mensaje y se finaliza el estado incorporando nuevamente la clave. Por último, se extrae la etiqueta de autenticación.
+En el modo de cifrado autenticado, ASCON procesa la clave, el \textit{nonce}, los datos asociados y el mensaje mediante una secuencia de inicialización, absorción, cifrado y finalización. Conceptualmente, el proceso es el siguiente: primero, se debe inicializar el estado con una clave, un \textit{nonce} y constantes. En segundo lugar, se debe aplicar la permutación interna para, posteriormente, absorber los datos asociados. Luego, se cifra el mensaje y se finaliza el estado, incorporando nuevamente la clave. Por último, se extrae la etiqueta de autenticación.
 
-Esta estructura permite obtener confidencialidad e integridad dentro de una única construcción. Para dispositivos IoT, esta propiedad reduce la complejidad del diseño ya que evita combinar manualmente un cifrador con un código de autenticación.
+Esta estructura permite garantizar la confidencialidad y la integridad en una única construcción. Para dispositivos IoT, esta propiedad reduce la complejidad del diseño ya que evita combinar manualmente un cifrador con un código de autenticación.
 
 \subsection{Relación entre ASCON y fuentes de entropía}
 
-Aunque ASCON proporciona un mecanismo robusto de cifrado autenticado, no elimina la necesidad de una fuente de entropía confiable. La clave secreta debe generarse a partir de material aleatorio de alta calidad. Además, dependiendo del diseño del protocolo, los nonces pueden requerir generación aleatoria o inicialización segura de contadores.
+Aunque ASCON proporciona un mecanismo robusto de cifrado autenticado, no elimina la necesidad de una fuente de entropía confiable. La clave secreta debe generarse a partir de material aleatorio de alta calidad. Además, dependiendo del diseño del protocolo, los nonces pueden requerir la generación aleatoria o la inicialización segura de contadores.
 
-Por tanto, el desempeño de ASCON en un dispositivo IoT debe evaluarse junto con el mecanismo utilizado para generar claves y parámetros criptográficos. Esta tesis toma ASCON como referencia de criptografía ligera y estudia QPP-RNG como posible fuente de entropía complementaria.
+Por tanto, el desempeño de ASCON en un dispositivo IoT debe evaluarse junto con el mecanismo utilizado para generar claves y parámetros criptográficos. Esta tesis toma ASCON como referencia en el ámbito de la criptografía ligera y estudia QPP-RNG como una posible fuente de entropía complementaria.
 
 \section{\textit{Quantum Permutation Pad}}
 \label{sec:qpp}
 
-\textit{Quantum Permutation Pad} (QPP) es una propuesta criptográfica basada en el uso de permutaciones sobre espacios de estados \cite{Kuang2022QuantumCryptography,Kuang2024QPPGroup}. Su fundamento consiste en considerar que, para un sistema de $n$ bits o qubits, existen $2^n$ estados posibles, pero $(2^n)!$ permutaciones sobre dichos estados. Este crecimiento factorial produce un espacio de transformaciones extremadamente grande.
+\textit{Quantum Permutation Pad} (QPP) es una propuesta criptográfica basada en el uso de permutaciones sobre espacios de estados \cite{Kuang2022QuantumCryptography,Kuang2024QPPGroup}. Su fundamento consiste en considerar que, para un sistema de $n$ bits o qubits, existen $2^n$ estados posibles, pero $(2^n)!$ permutaciones de estos estados. Este crecimiento factorial produce un espacio de transformaciones extremadamente grande.
 
 \subsection{Espacio de permutaciones}
 
@@ -334,7 +334,7 @@ El número total de permutaciones posibles es:
 
 donde $\Pi$ representa el conjunto de todas las permutaciones sobre $\mathcal{S}$.
 
-Para $n=8$, el número de estados es $256$, y el espacio de permutaciones tiene tamaño $256!$. Este espacio es mucho mayor que el espacio lineal de claves de $8$ bits, lo cual explica el interés de QPP desde la perspectiva de entropía combinatoria.
+Para $n=8$, el número de estados es $256$, y el espacio de permutaciones tiene tamaño $256!$. Este espacio es mucho mayor que el espacio lineal de claves de $8$ bits, lo que explica el interés de QPP desde la perspectiva de la entropía combinatoria.
 
 \subsection{Representación matricial}
 
@@ -366,7 +366,7 @@ El conmutador se define como:
     [P_i,P_j] = P_iP_j - P_jP_i
 \end{equation}
 
-Cuando $[P_i,P_j] \neq 0$, el orden de aplicación de las permutaciones altera el resultado. Esta propiedad tiene implicaciones criptográficas, porque un adversario no solamente tendría que identificar las permutaciones utilizadas, sino también su orden correcto.
+Cuando $[P_i,P_j] \neq 0$, el orden de aplicación de las permutaciones altera el resultado. Esta propiedad tiene implicaciones criptográficas, porque un adversario no solo tendría que identificar las permutaciones utilizadas, sino también su orden correcto.
 
 \subsection{Entropía del espacio de permutaciones}
 
@@ -376,7 +376,7 @@ La entropía asociada a la selección uniforme de una permutación dentro del es
     H(\Pi) = \log_2((2^n)!)
 \end{equation}
 
-Usando aproximaciones derivadas de Stirling, para valores grandes de $n$ esta cantidad crece de manera superlineal respecto al número de estados. Este crecimiento es una de las razones por las cuales QPP ha sido propuesto como marco de interés para criptografía cuánticamente segura.
+Usando aproximaciones derivadas de Stirling, para valores grandes de $n$ esta cantidad crece de manera superlineal respecto al número de estados. Este crecimiento es una de las razones por las que QPP ha sido propuesto como un marco de interés para la criptografía cuánticamente segura.
 
 \begin{table}[H]
 \centering
@@ -398,11 +398,11 @@ Usando aproximaciones derivadas de Stirling, para valores grandes de $n$ esta ca
 \section{QPP-RNG}
 \label{sec:qpp_rng}
 
-QPP-RNG es un generador de números aleatorios basado en software que busca aprovechar fuentes de variabilidad presentes en sistemas computacionales \cite{Kuang2025QPP-RNG:Randomness}. En lugar de depender exclusivamente de hardware especializado, utiliza fenómenos como \textit{jitter} temporal, comportamiento microarquitectural, acceso a memoria, variaciones de ejecución y eventos del sistema operativo.
+QPP-RNG es un generador de números aleatorios basado en software que busca aprovechar las fuentes de variabilidad presentes en sistemas computacionales \cite{Kuang2025QPP-RNG:Randomness}. En lugar de depender exclusivamente de hardware especializado, utiliza fenómenos como el \textit{jitter} temporal, el comportamiento microarquitectónico, el acceso a la memoria, las variaciones de ejecución y los eventos del sistema operativo.
 
 \subsection{\textit{Jitter} como fuente de entropía}
 
-El \textit{jitter} se refiere a pequeñas variaciones temporales en la ejecución de instrucciones, interrupciones, accesos a memoria o eventos del sistema \cite{Kuang2025IID-BasedJitter}. Aunque un programa pueda parecer determinístico, su ejecución real en hardware moderno puede variar debido a múltiples factores (el estado de la memoria, las interrupciones del sistema, la planificación de procesos, la predicción de saltos, las variaciones de frecuencia, la contención por recursos internos, el ruido eléctrico o térmico, etc.)
+El \textit{Jitter} se refiere a pequeñas variaciones temporales en la ejecución de instrucciones, en las interrupciones, en los accesos a la memoria o en los eventos del sistema \cite{Kuang2025IID-BasedJitter}. Aunque un programa pueda parecer determinístico, su ejecución real en hardware moderno puede variar debido a múltiples factores (el estado de la memoria, las interrupciones del sistema, la planificación de procesos, la predicción de saltos, las variaciones de frecuencia, la contención por recursos internos, el ruido eléctrico o térmico, etc.).
 
 Estas variaciones pueden medirse mediante temporizadores de alta resolución y utilizarse como muestras crudas de entropía. Sin embargo, el jitter no debe asumirse automáticamente como seguro. Es necesario medir, acondicionar y evaluar estadísticamente la salida \cite{Vrana2025RawEvaluation}.
 
@@ -411,9 +411,9 @@ Estas variaciones pueden medirse mediante temporizadores de alta resolución y u
 De manera general, un generador basado en QPP-RNG puede modelarse mediante cuatro etapas \cite{Kuang2025QPP-RNG:Randomness,Kuang2021PseudoPad}:
 
 \begin{enumerate}
-    \item \textbf{Recolección:} captura de muestras crudas provenientes de fuentes temporales o microarquitecturales.
-    \item \textbf{Mezcla:} combinación de muestras para reducir sesgos locales y distribuir variabilidad.
-    \item \textbf{Transformación:} aplicación de operaciones inspiradas en permutaciones o acondicionamiento criptográfico.
+    \item \textbf{Recolección:} captura de muestras crudas provenientes de fuentes temporales o microarquitectónicas.
+    \item \textbf{Mezcla:} combinación de muestras para reducir sesgos locales y distribuir la variabilidad.
+    \item \textbf{Transformación:} aplicación de operaciones inspiradas en permutaciones o en el acondicionamiento criptográfico.
     \item \textbf{Salida:} producción de bytes aleatorios para uso criptográfico o para alimentar un CSPRNG.
 \end{enumerate}
 
@@ -432,28 +432,28 @@ Estos requisitos guiarán la metodología experimental de los capítulos posteri
 
 \section{Rust como lenguaje para software criptográfico}
 
-Rust es un lenguaje de programación de sistemas diseñado para ofrecer alto desempeño junto con garantías fuertes de seguridad de memoria. Su modelo de propiedad, préstamos y tiempos de vida permite prevenir errores comunes como uso después de liberar memoria, dobles liberaciones, punteros nulos y condiciones de carrera en tiempo de compilación \cite{Klabnik2023TheLanguage,TheRustProjectDevelopers2024TheLanguage}.
+Rust es un lenguaje de programación de sistemas diseñado para ofrecer un alto rendimiento junto con garantías sólidas de seguridad de memoria. Su modelo de propiedad, préstamos y tiempos de vida permite prevenir errores comunes como uso después de liberar memoria, dobles liberaciones, punteros nulos y condiciones de carrera en tiempo de compilación \cite{Klabnik2023TheLanguage,TheRustProjectDevelopers2024TheLanguage}.
 
 \subsection{Modelo de propiedad}
 
-El modelo de propiedad de Rust establece que cada valor tiene un único propietario. Cuando el propietario sale de alcance, el valor se libera automáticamente. Esta regla evita múltiples errores de administración manual de memoria.
+El modelo de propiedad de Rust establece que cada valor tiene un único propietario. Cuando el propietario sale de alcance, el valor se libera automáticamente. Esta regla evita múltiples errores en la gestión manual de la memoria.
 
 \subsection{Préstamos e inmutabilidad}
 
-Rust permite referencias inmutables y referencias mutables bajo reglas estrictas. En un momento dado, puede existir cualquier número de referencias inmutables o una única referencia mutable, pero no ambas simultáneamente. Este modelo reduce el riesgo de condiciones de carrera y modificaciones inesperadas del estado.
+Rust permite referencias inmutables y mutables bajo reglas estrictas. En un momento dado, puede haber cualquier número de referencias inmutables o una única referencia mutable, pero no ambas simultáneamente. Este modelo reduce el riesgo de condiciones de carrera y de modificaciones inesperadas del estado.
 
 \subsection{Ventajas para criptografía ligera}
 
-Rust resulta atractivo para esta investigación por varias razones, pues permite escribir código de bajo nivel con desempeño cercano a C/C++, reduce errores de memoria frecuentes en software crítico, soporta compilación para arquitecturas embebidas, facilita la construcción de bibliotecas modulares, permite controlar dependencias y características mediante el manejador de paquetes \textit{Cargo}, y puede utilizarse en ambientes sin la librería estándar (\texttt{no\_std}), lo cual es relevante para el desarrollo en microcontroladores.
-En el contexto de este proyecto, Rust se utilizó para implementar una librería criptográfica ligera que integra QPP-RNG como fuente de entropía y permite comparaciones experimentales frente a componentes de referencia (Capítulo~\ref{cap:diseno}).
+Rust resulta atractivo para este trabajo de grado por varias razones, pues permite escribir código de bajo nivel con desempeño cercano a C/C++, reduce errores de memoria frecuentes en software crítico, soporta compilación para arquitecturas embebidas, facilita la construcción de bibliotecas modulares, permite controlar dependencias y características mediante el manejador de paquetes \textit{Cargo}, y puede utilizarse en ambientes sin la librería estándar (\texttt{no\_std}), lo cual es relevante para el desarrollo en microcontroladores.
+En el contexto de este proyecto, Rust se utilizó para implementar una librería criptográfica ligera que integra QPP-RNG como fuente de entropía y permite realizar comparaciones experimentales frente a componentes de referencia (Capítulo~\ref{cap:diseno}).
 
 \section{Métricas de evaluación experimental}
 
-La evaluación de una solución criptográfica para IoT no debe limitarse a verificar que produce resultados funcionales. También debe medir su eficiencia, consumo de recursos y calidad estadística. Las métricas consideradas en esta tesis se agrupan en cuatro categorías: calidad de aleatoriedad, desempeño, memoria y viabilidad de integración.
+La evaluación de una solución criptográfica para IoT no debe limitarse a verificar que produce resultados funcionales. También debe medir su eficiencia, el consumo de recursos y la calidad estadística. Las métricas consideradas en esta tesis se agrupan en cuatro categorías: calidad de la aleatoriedad, desempeño, memoria y viabilidad de integración.
 
 \subsection{Calidad de aleatoriedad}
 
-Las métricas de calidad de aleatoriedad incluyen la entropía por byte, min-entropía estimada, proporción de pruebas NIST SP 800-22 aprobadas, resultados de NIST SP 800-90B, correlación serial, la distribución de frecuencias y la compresibilidad.
+Las métricas de calidad de aleatoriedad incluyen la entropía por byte, la min-entropía estimada, la proporción de pruebas de NIST SP 800-22 aprobadas, los resultados de NIST SP 800-90B, la correlación serial, la distribución de frecuencias y la compresibilidad.
 
 Estas métricas permiten determinar si la salida generada por QPP-RNG es adecuada como fuente de entropía.
 
@@ -479,21 +479,12 @@ Puede expresarse en bytes por segundo, kilobytes por segundo o megabytes por seg
 
 \subsection{Uso de memoria}
 
-El uso de memoria incluye memoria estática, memoria dinámica y tamaño del binario. En sistemas embebidos, estas métricas son críticas porque el firmware debe ajustarse a límites estrictos de RAM y Flash.
+El uso de memoria incluye la memoria estática, la memoria dinámica y el tamaño del binario. En sistemas embebidos, estas métricas son críticas porque el firmware debe ajustarse a límites estrictos de RAM y Flash.
 
-\subsection{Consumo energético}
-
-Cuando la plataforma lo permita, el consumo energético puede estimarse mediante mediciones de corriente y tiempo de ejecución:
-
-\begin{equation}
-    E = V \cdot I \cdot t
-\end{equation}
-
-donde $E$ es la energía consumida, $V$ el voltaje, $I$ la corriente promedio y $t$ el tiempo de operación.
 
 \subsection{Latencia de integración criptográfica}
 
-Además de medir QPP-RNG de forma aislada, es necesario evaluar su impacto cuando se integra con operaciones criptográficas. Por ejemplo, puede medirse el tiempo requerido para generar una clave o un \textit{nonce}, inicializar una operación AEAD, cifrar y autenticar un mensaje, o descifrar y verificar una etiqueta.
+Además de medir QPP-RNG de forma aislada, es necesario evaluar su impacto al integrarlo en operaciones criptográficas. Por ejemplo, puede medirse el tiempo requerido para generar una clave o un \textit{nonce}, inicializar una operación AEAD, cifrar y autenticar un mensaje, o descifrar y verificar una etiqueta.
 
 
 \begin{table}[H]
@@ -507,7 +498,6 @@ Además de medir QPP-RNG de forma aislada, es necesario evaluar su impacto cuand
 Aleatoriedad & Entropía, min-entropía, pruebas NIST, ENT & Evaluar calidad estadística de la salida \\
 Desempeño & Tiempo por byte, throughput, latencia & Determinar eficiencia computacional \\
 Memoria & RAM, Flash, tamaño del binario & Verificar viabilidad en dispositivos restringidos \\
-Energía & Energía por generación u operación & Estimar impacto en autonomía del dispositivo \\
 Integración & Tiempo de generación de claves y nonces & Evaluar utilidad práctica dentro de criptografía ligera \\
 \bottomrule
 \end{tabularx}
@@ -515,14 +505,14 @@ Integración & Tiempo de generación de claves y nonces & Evaluar utilidad prác
 
 \section{Síntesis del marco teórico}
 
-El marco teórico desarrollado permite establecer la base conceptual de la investigación. En primer lugar, se mostró que los dispositivos IoT críticos imponen restricciones severas de memoria, procesamiento, energía y comunicación. Estas restricciones justifican el uso de criptografía ligera y lenguajes de programación orientados a seguridad de software.
+El marco teórico desarrollado permite establecer la base conceptual de la investigación. En primer lugar, se demostró que los dispositivos IoT críticos imponen restricciones severas en memoria, procesamiento, energía y comunicación. Estas restricciones justifican el uso de criptografía ligera y de lenguajes de programación orientados a la seguridad del software.
 
-En segundo lugar, se explicó que la seguridad criptográfica depende no solamente del algoritmo de cifrado, sino también de la calidad de la entropía utilizada para generar claves, semillas y nonces. Esta observación es central para la tesis, pues QPP-RNG se estudia precisamente como fuente de entropía para arquitecturas criptográficas ligeras.
+En segundo lugar, se explicó que la seguridad criptográfica depende no solo del algoritmo de cifrado, sino también de la calidad de la entropía utilizada para generar claves, semillas y nonces. Esta observación es central para la tesis, pues QPP-RNG se estudia precisamente como fuente de entropía para arquitecturas criptográficas ligeras.
 
-En tercer lugar, se formalizaron las nociones de entropía de Shannon y min-entropía, destacando que la segunda resulta especialmente relevante para evaluar fuentes criptográficas. También se presentaron las principales pruebas estadísticas utilizadas para analizar generadores de números aleatorios, incluyendo NIST SP 800-22, NIST SP 800-90B y ENT.
+En tercer lugar, se formalizaron las nociones de entropía de Shannon y de min-entropía, destacando que la segunda resulta especialmente relevante para evaluar fuentes criptográficas. También se presentaron las principales pruebas estadísticas utilizadas para analizar generadores de números aleatorios, entre ellas NIST SP 800-22, NIST SP 800-90B y ENT.
 
-Posteriormente, se describieron los fundamentos de AEAD y ASCON como mecanismo de referencia para cifrado autenticado en dispositivos restringidos. Aunque ASCON ofrece una construcción eficiente y segura, continúa dependiendo de claves y parámetros generados correctamente.
+Posteriormente, se describieron los fundamentos de AEAD y ASCON como mecanismos de referencia para el cifrado autenticado en dispositivos restringidos. Aunque ASCON ofrece una construcción eficiente y segura, sigue dependiendo de claves y parámetros generados correctamente.
 
-Finalmente, se introdujeron los fundamentos de QPP, QPP-RNG y Rust. QPP aporta un marco conceptual basado en espacios de permutaciones, crecimiento factorial y no conmutatividad, mientras que QPP-RNG propone aprovechar fuentes software de variabilidad para generar aleatoriedad sin hardware especializado. Rust, por su parte, ofrece un entorno de implementación adecuado para construir una librería segura, modular y portable.
+Finalmente, se introdujeron los fundamentos de QPP, QPP-RNG y Rust. QPP aporta un marco conceptual basado en espacios de permutaciones, crecimiento factorial y no conmutatividad, mientras que QPP-RNG propone aprovechar fuentes de variabilidad de software para generar aleatoriedad sin hardware especializado. Rust, por su parte, ofrece un entorno adecuado para crear una librería segura, modular y portable.
 
 Con base en este marco conceptual, el Capítulo~\ref{cap:metodologia} presenta la metodología y el diseño experimental con los que se evaluó la hipótesis de investigación, y el Capítulo~\ref{cap:diseno} describe la solución construida: la arquitectura de la librería, sus módulos principales, el flujo de generación de entropía y la integración con criptografía ligera.

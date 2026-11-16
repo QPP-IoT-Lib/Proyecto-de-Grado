@@ -22,6 +22,7 @@ QPP-IoT & \url{https://github.com/QPP-IoT-Lib/qpp-iot} & Fachada \texttt{QppEntr
 \bottomrule
 \end{tabularx}
 \end{table}
+Los resultados de este documento se obtuvieron con las siguientes revisiones de la rama \texttt{main} de cada repositorio: QPP-RNG-IoT, commit \texttt{fb4f85213eb6} (incluye los resultados de AVR, nRF52840 y ESP32 en \texttt{hil-results}); ASCON-IoT, commit \texttt{faf433104b06}; y QPP-IoT, commit \texttt{534f077172ae} (incluye las pruebas de extremo a extremo de AVR, nRF52840 y ESP32). Los hashes completos se obtienen con \texttt{git log -1 --format=\%H} en cada repositorio.
 
 Los resultados detallados, con las salidas completas de las herramientas del NIST, se encuentran en el directorio \texttt{hil-results} del repositorio QPP-RNG-IoT. Los archivos hexadecimales del \textit{firmware} usado en las capturas largas de AVR se distribuyen precompilados, con sus sumas SHA-256, en \texttt{hil-firmware/portable}.
 
@@ -62,6 +63,13 @@ cargo run --release -p qpp-rng-firmware --example pi_trace -- \
 \begin{lstlisting}
 cargo test --workspace --all-targets      # repositorio ASCON-IoT
 scripts/build-avr.sh atmega328p           # repositorio QPP-IoT
+\end{lstlisting}
+
+La prueba de ACVP está marcada como ignorada por defecto y requiere la variable de entorno \texttt{ACVP\_PROFILE\_DIR}, que apunta al directorio con los archivos JSON de la validación. Se ejecuta con:
+
+\begin{lstlisting}
+ACVP_PROFILE_DIR=crates/ascon-iot/tests/vectors/acvp \
+    cargo test -p ascon-iot --test acvp -- --ignored
 \end{lstlisting}
 
 \paragraph{Pila completa de extremo a extremo en las placas (repositorio QPP-IoT).}
