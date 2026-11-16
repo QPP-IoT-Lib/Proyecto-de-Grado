@@ -184,6 +184,8 @@ El artículo describe el mecanismo en prosa, con algunas fórmulas, pero no publ
 
 La fuente de entropía de la referencia es el tiempo de ejecución de su propio bucle, de modo que un compilador optimizador puede destruirla. Esto se comprobó experimentalmente: con el perfil de compilación de la librería (optimización completa, LTO y una sola unidad de generación de código), el compilador demostró que los efectos del bucle sobre la memoria eran locales, lo redujo a una ejecución casi sin variación temporal y el registro de la semilla quedó atrapado en un punto fijo. En una muestra de 5\,000 bytes, un único valor apareció en más del 70\,\% de las posiciones. El artículo evita este problema compilando con \texttt{-O0} \cite{Vrana2025RawEvaluation}. En la librería se aplicaron dos medidas: se fijó el nivel de optimización 0 para \texttt{qpp-rng-reference} y \texttt{entropy-timer} en todos los perfiles, y se insertó una barrera \texttt{core::hint::black\_box} en cada iteración del bucle. Una prueba de regresión verifica, con el temporizador real, que ningún valor ocupe más del 10\,\% de una muestra de 2\,000 bytes.
 
+\paragraph{Implicaciones para la portabilidad y la reproducibilidad.} Este hallazgo tiene una consecuencia que va más allá de la configuración de la librería: en un generador que mide su propio código, la fuente de entropía es una propiedad del \emph{binario}, no del algoritmo. La versión del compilador, el nivel de optimización, la optimización en el enlazado, la arquitectura y las banderas de compilación cambian las instrucciones que se ejecutan y, por tanto, la distribución de $\Delta t$. De ahí se siguen tres implicaciones. Primera, para la portabilidad: un resultado obtenido con un binario no se transfiere a otro, de modo que la entropía tendría que reevaluarse para cada combinación de plataforma y cadena de compilación. Segunda, para la integración: en Cargo, los perfiles de compilación, incluidos los niveles de optimización por paquete, solo se aplican desde el manifiesto raíz del proyecto que se compila, de modo que una dependencia no puede imponer \texttt{opt-level = 0} a quien la usa. Fuera de este repositorio, la única mitigación que viaja con el código es la barrera \texttt{black\_box}, que impide eliminar el bucle pero no garantiza que su tiempo conserve variación. Tercera, para la reproducibilidad: reproducir las cifras publicadas de QPP-RNG requiere conocer la cadena de compilación exacta de los autores, que no está publicada, y la prueba de regresión de este trabajo solo detecta un colapso grosero, no una reducción parcial de la entropía. La variante IoT evita las tres implicaciones porque su fuente no depende del código que se ejecuta.
+
 \subsection{Sesgo estructural de la extracción}
 \label{sec:sesgo}
 
@@ -216,7 +218,32 @@ $N$ & Media de $n_p$ & Un ciclo & XOR de $m$ ciclos \\
 \section{Acondicionamiento con SHA-256}
 \label{sec:acondicionamiento}
 
-El \textit{crate} \texttt{conditioning} implementa un componente de acondicionamiento en el sentido de SP 800-90B: \texttt{Sha256Conditioner} acumula 64 bytes crudos de la fuente que envuelve, los comprime con SHA-256 \cite{NIST2015SecureHashStandard} y entrega los 32 bytes del resumen antes de solicitar el siguiente bloque. La relación de compresión 2:1 (512 bits de entrada nominales para 256 bits de salida) busca dejar holgura sobre el margen habitual de 64 bits por encima del tamaño de la salida ($256 + 64 = 320$ bits). En la variante IoT, cada byte crudo se produce a partir de muestras físicas a las que se acreditan al menos 8 bits de min-entropía. Esa cifra es un límite superior de la entropía que llega al acondicionador, no una garantía, porque la caminata de QPP-RNG es una transformación determinista que no puede aumentar la entropía y podría reducirla (en particular, la semilla de 64 bits se reduce a 32 bits antes de cada caminata). Demostrar una cota inferior requiere analizar la conservación de entropía a través de la caminata, lo que se deja como trabajo futuro. En la referencia ejecutada en computadores, donde cada ciclo aporta unos 1.9 bits frescos por byte (experimento E4), 64 bytes crudos no alcanzan los 256 bits, por lo que el acondicionamiento no basta para respaldar su uso criptográfico.
+El \textit{crate} \texttt{conditioning} implementa un componente de acondicionamiento en el sentido de SP 800-90B: \texttt{Sha256Conditioner} acumula 64 bytes crudos de la fuente que envuelve, los comprime con SHA-256 \cite{NIST2015SecureHashStandard} y entrega los 32 bytes del resumen antes de solicitar el siguiente bloque. La relación de compresión 2:1 (512 bits de entrada nominales para 256 bits de salida) busca dejar holgura sobre el margen habitual de 64 bits por encima del tamaño de la salida ($256 + 64 = 320$ bits).
+
+\paragraph{Relación entre la entropía de entrada y los 256 bits de salida.} Conviene delimitar con precisión qué cifra corresponde a qué punto de la tubería, porque la Ecuación~\eqref{eq:cota_acondicionamiento} solo es útil si se sabe cuánta entropía entra al acondicionador. La Tabla~\ref{tab:entropia_bloque} lo resume para un bloque de salida.
+
+\begin{table}[H]
+\centering
+\caption{Entropía en cada punto de la tubería, para un bloque de 32 bytes de salida}
+\label{tab:entropia_bloque}
+\small
+\begin{tabularx}{\textwidth}{@{}L{0.34\textwidth}L{0.18\textwidth}L{0.18\textwidth}Y@{}}
+\toprule
+\textbf{Punto de la tubería} & \textbf{AVR ($h = 1$)} & \textbf{nRF52840 y ESP32 ($h = 4$)} & \textbf{Naturaleza de la cifra} \\
+\midrule
+Muestras absorbidas por bloque & $64 \times 8 = 512$ & $64 \times 4 = 256$ & Conteo \\
+Entropía acreditada en la fuente & $\geq 512$ bits & $\geq 1\,024$ bits & Garantía, si $h$ es válido \\
+Entropía estimada en la fuente ($\hat{H}_\infty$) & $\geq 829$ bits (Mega) & $\geq 1\,830$ bits & Estimación de SP 800-90B \\
+Entropía de los 64 bytes que salen de la caminata & $\leq 512$ bits & $\leq 512$ bits & Cota superior: 8 bits por byte \\
+Entropía del bloque acondicionado & $\leq 256$ bits & $\leq 256$ bits & Cota superior: tamaño de la salida \\
+Clave de 128 bits (16 bytes del bloque) & $\leq 128$ bits & $\leq 128$ bits & Cota superior \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Las dos primeras filas son las únicas que este trabajo respalda con mediciones. A partir de la tercera, solo pueden establecerse cotas superiores: cada byte que sale de la caminata contiene a lo sumo 8 bits, el bloque acondicionado a lo sumo 256 y una clave de 16 bytes a lo sumo 128. Para afirmar que la clave tiene efectivamente 128 bits de min-entropía haría falta una cota \emph{inferior} de la entropía que sale de la caminata. Si la caminata conservara al menos 5 de los 8 bits acreditados por byte, los 64 bytes aportarían $\geq 320$ bits y el bloque acondicionado tendría entropía completa. Pero la caminata es una transformación determinística que no puede aumentar la entropía y podría reducirla: el registro de semilla de 64 bits se reduce a 32 bits con \texttt{fmix32} antes de cada caminata, y cada byte es el XOR de cuatro valores $n_p \bmod 256$, que no son una función inyectiva del estado. Demostrar esa cota inferior requiere analizar la conservación de entropía a través de la caminata, lo que se deja como trabajo futuro. Por tanto, el valor acreditado debe leerse como \emph{la entropía que entra a la tubería}, y no como la entropía de la clave.
+
+En la referencia ejecutada en computadores, donde cada ciclo aporta entre 0.375 y 0.407 bits frescos, es decir, unos 1.9 a 2.0 bits por byte con $m = 5$ (experimento E4), 64 bytes crudos aportan a lo sumo unos 120 a 130 bits, por debajo no solo de los 320 que exigiría la entropía completa, sino incluso de los 128 bits de una clave de Ascon-AEAD128. En ese caso, el acondicionamiento mejora la apariencia estadística de la salida pero no basta para respaldar su uso criptográfico.
 
 El acondicionador se mantuvo en un \textit{crate} propio por la misma razón que separa la referencia de la variante IoT: la fuente cruda sigue disponible sin modificaciones para su evaluación y el arnés puede registrar cada candidato en forma cruda y acondicionada. Su documentación advierte que no debe estimarse la entropía de la salida acondicionada con \texttt{ea\_non\_iid}: un buen \textit{hash} borra los patrones de corto alcance que esos estimadores buscan, en ambas direcciones.
 
@@ -225,7 +252,7 @@ El acondicionador se mantuvo en un \textit{crate} propio por la misma razón que
 
 \subsection{Motivación}
 
-El experimento E1 (Sección~\ref{sec:res_determinismo}) mostró que la referencia no tiene entropía en los cuatro microcontroladores: desde un reinicio, cada placa reproduce exactamente la misma traza $(n_p, \Delta t)$. En un núcleo sin sistema operativo y sin otros maestros de bus, cada instrucción tarda un número de ciclos que depende solo del estado del propio programa y el temporizador cuenta el mismo reloj que la CPU, de modo que $\Delta t$ es una función determinística de la semilla. La caché de la Flash de la ESP32 no cambia esta conclusión: su contenido también es una función determinística del programa ejecutado desde el reinicio. La variante IoT conserva la estructura de QPP-RNG, pero cambia la fuente de entropía y, de paso, el costo de cómputo. La Tabla~\ref{tab:cambios_iot} resume las diferencias.
+El experimento E1 (Sección~\ref{sec:res_determinismo}) mostró que, en las condiciones evaluadas, la referencia no tiene entropía en los cuatro microcontroladores: desde un reinicio, cada placa reproduce exactamente la misma traza $(n_p, \Delta t)$. En un núcleo sin sistema operativo y sin otros maestros de bus, cada instrucción tarda un número de ciclos que depende solo del estado del propio programa y el temporizador cuenta el mismo reloj que la CPU, de modo que $\Delta t$ es una función determinística de la semilla. La caché de la Flash de la ESP32 no cambia esta conclusión: su contenido también es una función determinística del programa ejecutado desde el reinicio. La variante IoT conserva la estructura de QPP-RNG, pero cambia la fuente de entropía y, de paso, el costo de cómputo. La Tabla~\ref{tab:cambios_iot} resume las diferencias.
 
 \begin{table}[H]
 \centering
@@ -252,20 +279,20 @@ El rasgo \texttt{JitterSource} tiene un único método, \texttt{sample()}, que b
 
 \subsection{Pruebas de salud continuas}
 
-Cada muestra cruda pasa por las dos pruebas continuas de SP 800-90B \cite{Turan2018RecommendationGeneration}: la prueba de conteo de repeticiones (RCT) y la prueba de proporción adaptativa (APT). Ambas se configuran a partir de la min-entropía $H$ acreditada a la fuente, con una tasa de falsos positivos $\alpha = 2^{-20}$:
+Cada muestra cruda pasa por las dos pruebas continuas de SP 800-90B \cite{Turan2018RecommendationGeneration}: la prueba de conteo de repeticiones (RCT) y la prueba de proporción adaptativa (APT). Ambas se configuran a partir de la min-entropía $h$ acreditada a cada muestra, con una tasa de falsos positivos $\alpha = 2^{-20}$, y se aplican al byte bajo de cada muestra, la misma representación sobre la que se estimó $\hat{H}_\infty$ (Sección~\ref{sec:representacion}):
 \begin{equation}
-    C_{\text{RCT}} = 1 + \left\lceil \frac{20}{H} \right\rceil, \qquad
-    C_{\text{APT}} = 1 + \operatorname{CRITBINOM}\!\left(W,\, 2^{-H},\, 1 - 2^{-20}\right), \quad W = 512.
+    C_{\text{RCT}} = 1 + \left\lceil \frac{20}{h} \right\rceil, \qquad
+    C_{\text{APT}} = 1 + \operatorname{CRITBINOM}\!\left(W,\, 2^{-h},\, 1 - 2^{-20}\right), \quad W = 512.
 \end{equation}
-La RCT falla si un mismo valor se repite $C_{\text{RCT}}$ veces seguidas. La APT falla si, en una ventana de $W$ muestras, el primer valor aparece $C_{\text{APT}}$ veces o más. Para $H = 1$, los umbrales son 21 y 311. Para $H = 4$, los umbrales son 6 y 62, el mayor valor tabulado: un valor acreditado mayor que 4 se trata como 4. Una falla se reporta como \texttt{HealthError} en lugar de producir bytes de baja entropía en silencio. Estas pruebas detectan una fuente atascada o degradada, pero no pueden detectar una fuente que varía de forma completamente determinística, como la referencia en un microcontrolador: ese modo de falla tiene que eliminarse en el diseño, eligiendo una fuente físicamente independiente.
+La RCT falla si un mismo valor se repite $C_{\text{RCT}}$ veces seguidas. La APT falla si, en una ventana de $W$ muestras, el primer valor aparece $C_{\text{APT}}$ veces o más. Para $h = 1$, los umbrales son 21 y 311. Para $h = 4$, los umbrales son 6 y 62, el mayor valor tabulado: un valor acreditado mayor que 4 se trata como 4. Una falla se reporta como \texttt{HealthError} en lugar de producir bytes de baja entropía en silencio. Estas pruebas detectan una fuente atascada o degradada, pero no pueden detectar una fuente que varía de forma completamente determinística, como la referencia en un microcontrolador: ese modo de falla tiene que eliminarse en el diseño, eligiendo una fuente físicamente independiente.
 
 \subsection{Contabilidad de entropía}
 
 En la referencia, una medición de tiempo equivale a un ciclo de convergencia, de modo que una fuente pobre obliga a ejecutar muchas caminatas costosas por byte. En la variante IoT, ambas cantidades se separan. El número de muestras por byte se deriva de la min-entropía acreditada, de modo que cada byte quede respaldado por al menos 8 bits acreditados:
 \begin{equation}
-    \text{muestras por caminata} = \max\!\left(1,\; \left\lceil \frac{\lceil 8 / H \rceil}{4} \right\rceil \right),
+    \text{muestras por caminata} = \max\!\left(1,\; \left\lceil \frac{\lceil 8 / h \rceil}{4} \right\rceil \right),
 \end{equation}
-mientras que el número de caminatas por byte se fija en 4, lo justo para aplanar el sesgo de la extracción con $N = 6$ (Tabla~\ref{tab:sesgo}). Con $H = 1$ (AVR), cada byte absorbe 8 muestras, con $H = 4$ (RNG del nRF52840 o de la ESP32), 4. Cada muestra se incorpora a una semilla de 64 bits como $s \leftarrow (s \ll 8) \oplus x$. Antes del primer byte, el generador absorbe 8 muestras adicionales para que la salida inicial no dependa de la semilla nula.
+mientras que el número de caminatas por byte se fija en 4, lo justo para aplanar el sesgo de la extracción con $N = 6$ (Tabla~\ref{tab:sesgo}). Con $h = 1$ (AVR), cada byte absorbe 8 muestras, con $h = 4$ (RNG del nRF52840 o de la ESP32), 4. Cada muestra completa, de 32 bits, se incorpora a una semilla de 64 bits como $s \leftarrow (s \ll 8) \oplus x$. Antes del primer byte, el generador absorbe 8 muestras adicionales para que la salida inicial no dependa de la semilla nula.
 
 \subsection{Generación de permutaciones de bajo costo}
 
@@ -281,6 +308,13 @@ En el ATmega2560, la referencia gasta en promedio unos 1\,090 ciclos por índice
 
 \texttt{QppRngIot} implementa \texttt{TryRng<Error = HealthError>}, de modo que una falla de salud es un valor de retorno. Para las interfaces que exigen un generador infalible, el envoltorio \texttt{PanicOnHealthFailure} convierte la falla en un pánico e implementa \texttt{QppRngSource}. La salida de la variante IoT es salida cruda de una fuente de entropía y, al igual que la de la referencia, debe acondicionarse antes de usarse como material de clave.
 
+\subsection{Manejo de fallas de salud: una limitación de diseño}
+\label{sec:limitacion_panico}
+
+Convertir una falla de salud en un pánico fue una decisión de conveniencia, impuesta porque el acondicionador solo acepta una fuente infalible (Sección~\ref{sec:qpp_iot}), y debe entenderse como una limitación del diseño actual y no como el comportamiento deseable. Tiene tres inconvenientes. Primero, en un dispositivo sin sistema operativo con \texttt{panic = \textquotedbl{}abort\textquotedbl{}}, un pánico detiene o reinicia el dispositivo: la aplicación pierde la posibilidad de decidir qué hacer (reintentar, esperar, señalizar una alarma o degradar el servicio), y un atacante capaz de perturbar la fuente, por ejemplo con temperatura o interferencia sobre el oscilador, podría inducir reinicios repetidos. Segundo, si el pánico se captura, como permite Rust en el anfitrión con \texttt{panic = \textquotedbl{}unwind\textquotedbl{}}, el búfer que se estaba llenando puede contener bytes parciales: \texttt{try\_fill\_bytes} escribe byte por byte y se detiene en el primero que falla, sin borrar los anteriores. Tercero, la falla no queda registrada en el generador: tras un error, la siguiente llamada vuelve a producir bytes sin exigir una resiembra.
+
+En una librería destinada a aplicaciones reales, la alternativa preferible es la que recomienda SP 800-90B para una fuente de entropía que falla: propagar el error hasta la aplicación, dejar el generador en un estado de error permanente hasta que se reinicialice explícitamente y garantizar que ninguna salida parcial llegue al consumidor, ya sea llenando un búfer interno y copiándolo solo cuando está completo o borrando el búfer del llamador antes de retornar el error. Eso requiere que el acondicionador acepte una fuente falible y que la fachada exponga \texttt{TryRng} con un tipo de error propio, cambios que se dejan como trabajo futuro.
+
 \section{Fuentes físicas por plataforma}
 \label{sec:fuentes}
 
@@ -289,6 +323,26 @@ En el ATmega2560, la referencia gasta en promedio unos 1\,090 ciclos por índice
 \paragraph{nRF52840: generador en hardware.} El nRF52840 incluye un periférico RNG basado en ruido térmico, con corrección de sesgo. Se evaluó también una fuente análoga a la de AVR (el RTC alimentado por el oscilador LFRC de 32.768 kHz contra el contador de ciclos), pero su min-entropía resultó baja (Sección~\ref{sec:res_fuentes}), y se prefirió el periférico RNG, que la variante IoT usa como \texttt{JitterSource}.
 
 \paragraph{ESP32: generador en hardware con su fuente de ruido activa.} La ESP32 también incluye un periférico RNG. Según la documentación del fabricante, su salida solo es verdaderamente aleatoria mientras está activa alguna fuente de ruido física, la radio o el ruido del ADC de aproximaciones sucesivas (SAR); con ambas apagadas, debe considerarse pseudoaleatoria. Como los \textit{firmwares} de este trabajo no usan la radio, la fuente de la ESP32 toma posesión del ADC1 al construirse y deja la fuente de ruido del ADC activada durante toda la ejecución, de modo que la precondición queda garantizada por el tipo y no por la disciplina de quien integra la librería. Cada muestra es el byte bajo de una palabra del RNG. Se evaluó también una fuente análoga a la de AVR: el reloj lento del dominio RTC, un oscilador RC de unos 156 kHz, cuyo periodo acumulado durante 256 ciclos mide en ciclos del cristal de 40 MHz la unidad de calibración del grupo de temporizadores 0. Esa fuente resultó utilizable, pero más débil que el RNG (Sección~\ref{sec:res_fuentes}), y no se usa. El \textit{firmware} se ejecuta en el núcleo 0, con el núcleo 1 detenido y la radio apagada.
+
+\paragraph{Condiciones para que cada fuente entregue muestras válidas.} Un valor acreditado solo es válido mientras se mantienen las condiciones en que se estimó. Cada fuente tiene precondiciones propias, que la implementación hace explícitas en su construcción y en su documentación (Tabla~\ref{tab:condiciones_fuentes}). Algunas se garantizan por tipo, porque el constructor toma posesión del periférico; otras, como la ausencia de otro usuario del Timer1 en AVR, solo pueden declararse como contrato del constructor, que por eso está marcado como inseguro (\texttt{unsafe}) en Rust.
+
+\begin{table}[H]
+\centering
+\caption{Precondiciones de cada fuente física}
+\label{tab:condiciones_fuentes}
+\small
+\begin{tabularx}{\textwidth}{@{}L{0.17\textwidth}Y L{0.25\textwidth}@{}}
+\toprule
+\textbf{Fuente} & \textbf{Condiciones para que la muestra sea válida} & \textbf{Cómo se garantiza} \\
+\midrule
+AVR, perro guardián contra Timer1 & El perro guardián en modo de solo interrupción y no de reinicio; el Timer1 sin preescalador y sin otro usuario (en Arduino, por ejemplo, las bibliotecas de servomotores o PWM en ciertos pines lo usan); las interrupciones globales habilitadas; la CPU fuera de los modos de bajo consumo que detienen el Timer1 & Contrato del constructor \texttt{unsafe}; sin interrupciones habilitadas, el muestreo se bloquea en lugar de entregar valores \\
+nRF52840, RNG & El periférico iniciado con la corrección digital de sesgo activada; ningún otro usuario del periférico, en particular la pila de radio del fabricante, que lo reserva cuando está activa; esperar la bandera de valor listo antes de cada lectura & Contrato del constructor \texttt{unsafe}; la lectura espera la bandera \\
+ESP32, RNG & Una fuente de ruido física activa (la radio o el ruido del ADC SAR); sin ella, la salida es pseudoaleatoria \cite{EspressifRNG}; el ADC1 no puede usarse para otra cosa mientras la fuente de ruido está activa & Por tipo: el constructor toma posesión del ADC1 y deja la fuente de ruido activa durante toda la ejecución \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+El caso de la ESP32 merece una observación adicional. Que la fuente de ruido esté activa es una condición necesaria, pero la evaluación de este trabajo leyó el RNG a un ritmo menor que el de operación (Capítulo~\ref{cap:metodologia}, amenazas a la validez), y el fabricante recomienda no leerlo a más de cierta frecuencia \cite{EspressifRNG}. Las pruebas de salud no saltaron en ninguna ejecución, pero una evaluación al ritmo exacto de operación sigue pendiente. En los tres casos, si una aplicación viola una precondición, por ejemplo apagando la fuente de ruido o reconfigurando el Timer1, la fuente puede seguir entregando valores que superan las pruebas de salud, porque estas no detectan una fuente que varía de forma determinística.
 
 \section{Arnés de evaluación}
 \label{sec:arnes}
@@ -359,6 +413,8 @@ La fachada \texttt{qpp-iot} combina los dos repositorios anteriores en un solo t
 \label{fig:tuberia}
 \end{figure}
 
-El \textit{crate} \texttt{qpp-iot-boards} provee una fuente por placa, cada una detrás de una característica de compilación: \texttt{avr-wdt} (Arduino Uno, Nano y Mega 2560), \texttt{nrf52840}, \texttt{esp32} y \texttt{mock}, un generador determinístico \emph{sin entropía}, útil únicamente para probar la tubería en el anfitrión. Activar la característica de una placa al compilar para otra arquitectura produce un error de compilación. Como el acondicionador solo acepta una fuente infalible, \texttt{QppEntropy} usa el envoltorio que entra en pánico ante una falla de salud. Por ello, la configuración recomendada es \texttt{panic = \textquotedbl{}abort\textquotedbl{}} y el pánico debe tratarse como ``reiniciar y volver a sembrar'', nunca como ``continuar''.
+El \textit{crate} \texttt{qpp-iot-boards} provee una fuente por placa, cada una detrás de una característica de compilación: \texttt{avr-wdt} (Arduino Uno, Nano y Mega 2560), \texttt{nrf52840}, \texttt{esp32} y \texttt{mock}, un generador determinístico \emph{sin entropía}, útil únicamente para probar la tubería en el anfitrión. Activar la característica de una placa al compilar para otra arquitectura produce un error de compilación. Como el acondicionador solo acepta una fuente infalible, \texttt{QppEntropy} usa el envoltorio que entra en pánico ante una falla de salud. Por ello, la configuración recomendada es \texttt{panic = \textquotedbl{}abort\textquotedbl{}} y el pánico debe tratarse como ``reiniciar y volver a sembrar'', nunca como ``continuar''; las limitaciones de esta decisión se discuten en la Sección~\ref{sec:limitacion_panico}.
+
+La tubería entrega bytes acondicionados, y la librería permite usarlos de dos maneras que no son equivalentes. La primera, que es la que usa el \textit{firmware} de extremo a extremo, toma directamente de la tubería la clave y el \textit{nonce} inicial. La segunda usa la tubería solo para sembrar un DRBG al arranque y deriva de este las claves y los \textit{nonces}. La librería actual no incluye un DRBG; la diferencia entre ambos usos se discute en el Capítulo~\ref{cap:discusion}.
 
 En AVR, la tubería completa solo cabe en la memoria Flash si se usan las variantes compactas de los \textit{backends} de SHA-256 y ASCON, que se seleccionan con banderas de compilación (Sección~\ref{sec:res_huella}). Dado que una librería no puede fijar esas banderas por su cuenta, toda aplicación para AVR debe incluirlas en su configuración de compilación. El repositorio incluye un \textit{script} que lo hace y que falla si la imagen deja de caber. Si la aplicación también descifra, debe compilarse además con \texttt{opt-level = \textquotedbl{}z\textquotedbl{}}, de lo contrario, la imagen no cabe en un ATmega328P (Sección~\ref{sec:res_huella}). El repositorio incluye también el \textit{firmware} de la prueba de extremo a extremo y el \textit{script} que verifica su informe contra \texttt{ascon-c} (Sección~\ref{sec:res_e2e}).

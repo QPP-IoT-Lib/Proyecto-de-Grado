@@ -33,9 +33,9 @@ La columna B/s es la salida por defecto que el cómputo permite ($m = 5$ ciclos 
 
 En los cuatro microcontroladores, todas las capturas fueron idénticas bit a bit. La razón es que $\Delta t$ es una función determinística de los valores del generador interno (el número de \textit{pads}, los rechazos de la reducción de Lemire y las interrupciones de desbordamiento del temporizador), todos ellos funciones de la semilla, y la siguiente semilla es a su vez una función de $\Delta t$: no hay ruido independiente en ninguna parte del ciclo. La traza del Nano difiere de la del Mega (otra disposición del código produce otros conteos de ciclos), pero cada placa se repite a sí misma con exactitud. Compilar la referencia con optimización por tamaño en lugar de \texttt{-O0} no cambia el determinismo ni, de forma notable, la velocidad. En un núcleo de 8 bits domina la aritmética de 64 y 128 bits.
 
-El caso de la ESP32 es el más informativo, porque es el único de los cuatro que ejecuta el código desde una memoria Flash externa a través de una caché, un mecanismo que la literatura cita entre las fuentes del \textit{jitter} de QPP-RNG. Aun así, las cinco capturas, tomadas tras reinicios por el pin EN, fueron idénticas en todos los registros, incluidas las tres de 20\,000 ciclos. La caché no añade ruido: tras un reinicio, su contenido evoluciona de la misma forma, porque depende únicamente de la secuencia de accesos del programa, que a su vez depende solo de la semilla.
+El caso de la ESP32 es el más informativo, porque es el único de los cuatro que ejecuta el código desde una memoria Flash externa a través de una caché, un mecanismo que la literatura cita entre las fuentes del \textit{jitter} de QPP-RNG. Aun así, las cinco capturas, tomadas tras reinicios por el pin EN, fueron idénticas en todos los registros, incluidas las tres de 20\,000 ciclos. La caché no añade ruido: tras un reinicio, su contenido evoluciona de la misma forma, porque depende únicamente de la secuencia de accesos del programa, que a su vez depende solo de la semilla. Este resultado contradice directamente uno de los supuestos de QPP-RNG (Sección~\ref{sec:qpp_rng_referencia}), el de que mecanismos microarquitecturales como la caché bastan por sí solos para introducir la variabilidad que el generador necesita. Una caché es un mecanismo determinístico; solo produce variación temporal si algo externo al programa altera su contenido o su ocupación, como otro proceso, otro núcleo o un controlador de acceso directo a memoria, y en la ESP32 evaluada no había nada de eso. En el sentido de la hipótesis H1, la refutación es completa en las cuatro placas: la perturbación $\varepsilon$ de la Ecuación~\eqref{eq:ciclo_dt} no cambió un solo valor de la traza.
 
-Las pruebas estadísticas no detectan esta falla. El byte bajo de $\Delta t$ en la traza del nRF52840 obtiene 4.93 bits por muestra con los estimadores MCV (\textit{Most Common Value}) y \textit{t-tuple}, y la salida por defecto reconstruida a partir de la traza supera todas las pruebas de nivel 1 aplicables a 400 bytes. En la ESP32, los 4\,000 bytes de salida reconstruidos a partir de una traza también superan el nivel 1 (monobit $p = 0.85$, rachas $p = 0.96$, $\chi^2$ $p = 0.89$). Solamente la comparación entre reinicios revela que la fuente no tiene entropía. La referencia, en estas plataformas, se comporta como un generador pseudoaleatorio cuya clave es la semilla fijada en tiempo de compilación.
+\paragraph{Por qué las pruebas estadísticas no detectan esta falla.} El byte bajo de $\Delta t$ en la traza del nRF52840 obtiene 4.93 bits por muestra con los estimadores MCV (\textit{Most Common Value}) y \textit{t-tuple}, y la salida por defecto reconstruida a partir de la traza supera todas las pruebas de nivel 1 aplicables a 400 bytes. En la ESP32, los 4\,000 bytes de salida reconstruidos a partir de una traza también superan el nivel 1 (monobit $p = 0.85$, rachas $p = 0.96$, $\chi^2$ $p = 0.89$). Este resultado no es una debilidad particular de las pruebas empleadas, sino una consecuencia de lo que miden. SP 800-22, ENT y los estimadores de SP 800-90B examinan \emph{una} secuencia y preguntan si sus propiedades internas (frecuencias, rachas, correlaciones, repeticiones, predictibilidad a partir de los valores anteriores) son compatibles con una fuente uniforme e independiente. La repetición entre reinicios es, en cambio, una propiedad \emph{entre ejecuciones}: cada captura, vista por separado, es una secuencia producida por una función de mezcla razonable a partir de una semilla, es decir, la salida de un PRNG, y un PRNG aceptable está diseñado precisamente para superar esas pruebas. Ninguna prueba aplicada a una sola captura puede distinguir una secuencia que se repetirá mañana de una que no. Las pruebas de salud continuas tampoco lo hacen, porque solo detectan valores atascados o dominantes, y la traza determinística varía de una muestra a otra. Lo que sí detecta este modo de falla es comparar varias ejecuciones desde el mismo estado inicial, que es lo que hacen las pruebas de reinicio de SP 800-90B; con trazas idénticas, la primera verificación de esas pruebas, que compara la frecuencia del valor más común en cada posición entre reinicios, habría rechazado la fuente de inmediato. Solamente la comparación entre reinicios reveló que la fuente no tiene entropía. La referencia, en estas plataformas, se comporta como un generador pseudoaleatorio cuya clave es la semilla fijada en tiempo de compilación.
 
 \section{E2: fuentes físicas independientes}
 \label{sec:res_fuentes}
@@ -49,7 +49,7 @@ Las pruebas estadísticas no detectan esta falla. El byte bajo de $\Delta t$ en 
 \small
 \begin{tabularx}{\textwidth}{@{}Y R{0.16\textwidth} R{0.05\textwidth} R{0.10\textwidth} R{0.08\textwidth} R{0.07\textwidth} R{0.12\textwidth}@{}}
 \toprule
-\textbf{Fuente} & \textbf{Periodo medio (ciclos)} & \textbf{$\sigma$} & \textbf{Autocorr. lag 1} & \textbf{$H$ ($2 \cdot 10^4$)} & \textbf{$H$ ($10^6$)} & \textbf{Acreditado} \\
+\textbf{Fuente} & \textbf{Periodo medio (ciclos)} & \textbf{$\sigma$} & \textbf{Autocorr. lag 1} & \textbf{$\hat{H}_\infty$ ($2 \cdot 10^4$)} & \textbf{$\hat{H}_\infty$ ($10^6$)} & \textbf{$h$} \\
 \midrule
 Mega 2560, perro guardián & 271\,716 (16.98~ms) & 62.1 & 0.97 & 2.14 & \textbf{1.62} & 1 \\
 Nano, perro guardián & 266\,255 (16.64~ms) & 52.7 & 0.93 & 2.98 & \textbf{2.24} & 1 \\
@@ -121,7 +121,7 @@ En total, el cómputo por byte se redujo $6.6\times$. Por índice de Fisher--Yat
 
 \subsection{Divergencia, rendimiento y huella}
 
-La Tabla~\ref{tab:res_iot_hw} resume la ejecución de la variante IoT en las cuatro placas. En los cuatro casos, la salida difirió entre reinicios y no hubo fallas de las pruebas de salud. En la ESP32, la divergencia se verificó con dos capturas de 200 bytes tras reinicios, y el rendimiento, con la captura de 1\,000\,000 de bytes que se presenta más adelante en esta sección.
+La Tabla~\ref{tab:res_iot_hw} resume la ejecución de la variante IoT en las cuatro placas. Como se indicó en la Sección~\ref{sec:seleccion_fuentes}, la fuente no es la misma en todas ellas (perro guardián en AVR, RNG en hardware en el nRF52840 y en la ESP32), de modo que las diferencias de rendimiento entre placas reflejan sobre todo la fuente y el procesador, y no solo la variante. En los cuatro casos, la salida difirió entre reinicios y no hubo fallas de las pruebas de salud. En la ESP32, la divergencia se verificó con dos capturas de 200 bytes tras reinicios, y el rendimiento, con la captura de 1\,000\,000 de bytes que se presenta más adelante en esta sección.
 
 \begin{table}[H]
 \centering
@@ -204,7 +204,7 @@ Se capturó 1\,000\,000 de bytes de salida de la variante IoT en cada placa, con
 \midrule
 Nivel 1 & Todas superadas: monobit $p = 0.80$, rachas $p = 0.14$, $\chi^2$ $p = 0.67$, corr.\ serial $-0.0012$ & Todas superadas: monobit $p = 0.015$, rachas $p = 0.23$, $\chi^2$ $p = 0.23$, corr.\ serial 0.0017 & Todas superadas: monobit $p = 0.37$, rachas $p = 0.61$, $\chi^2$ $p = 0.50$, corr.\ serial 0.0009 & Todas superadas: monobit $p = 0.14$, rachas $p = 0.52$, $\chi^2$ $p = 0.16$, corr.\ serial $-0.0001$ \\
 ENT (bits por byte; $\chi^2$ superado; error de $\pi$) & 7.999823; 66.58\,\%; 0.11\,\% & 7.999804; 23.31\,\%; 0.01\,\% & 7.999817; 49.98\,\%; 0.02\,\% & 7.999799; 15.81\,\%; 0.20\,\% \\
-\texttt{ea\_iid} & Todas las pruebas IID superadas; $H = 7.889$ & Todas las pruebas IID superadas; $H = 7.870$ & Todas las pruebas IID superadas; $H = 7.866$ & Todas las pruebas IID superadas; $H = 7.886$ \\
+\texttt{ea\_iid} & Todas las pruebas IID superadas; $\hat{H}_\infty = 7.889$ & Todas las pruebas IID superadas; $\hat{H}_\infty = 7.870$ & Todas las pruebas IID superadas; $\hat{H}_\infty = 7.866$ & Todas las pruebas IID superadas; $\hat{H}_\infty = 7.886$ \\
 \texttt{ea\_non\_iid} (bits por byte) & 7.358 & 7.261 & 7.277 & 7.307 \\
 SP 800-22 (8 flujos de 1 Mbit) & 1\,419 de 1\,426 (99.51\,\%) & 1\,392 de 1\,400 (99.43\,\%) & 1\,440 de 1\,452 (99.17\,\%) & 1\,363 de 1\,374 (99.20\,\%) \\
 \bottomrule
@@ -244,11 +244,21 @@ Salida por defecto & 69.8 kB/s & 184 kB/s \\
 
 \paragraph{El sesgo estructural se reproduce exactamente.} La salida de 1 MB reconstruida a partir de la traza falla las pruebas monobit, de rachas y de $\chi^2$ ($p < 10^{-23}$ en las tres, el mayor corresponde a monobit, $p = 2.2 \times 10^{-24}$). El bit 7 vale 1 con frecuencia 0.48621, frente a 0.48654 calculado con la Ecuación~\eqref{eq:sesgo_xor} ($\sigma \approx 0.0005$) y los bits 0 a 5 están en 0.5 dentro del ruido. El fallo es, entonces, el sesgo de la Sección~\ref{sec:sesgo}, y no un efecto de la plataforma.
 
-\paragraph{Entropía fresca por ciclo.} En cada ciclo, la semilla absorbe $\Delta t \bmod 256$, pero $n_p$ ya está fijado por la semilla, de modo que la entrada nueva es $\Delta t$ \emph{dado} $n_p$. En la Pi, $\Delta t \approx 1.10 + 1.262\, n_p$ ticks: el 98\,\% de los ciclos cae entre $-1.5$ y $+0.7$ ticks de esa recta, y el percentil 99.9 está en $+4.7$ ticks. Un ciclo es una caminata de unos 2~$\mu$s medida con un reloj de 18.5 ns, de modo que lo que varía es, sobre todo, a qué lado de un flanco del reloj termina el ciclo. Por ejemplo, para $n_p = 3$, 35\,131 de 40\,976 ciclos tienen $\Delta t = 5$. La Tabla~\ref{tab:res_plugin} presenta la min-entropía condicional por estimación directa,
-\begin{equation}
-    H_\infty(\tau \mid n_p) = -\log_2 \sum_n \Pr[n_p = n]\, \max_t \Pr[\tau = t \mid n_p = n], \qquad \tau = \Delta t \bmod 256,
-\end{equation}
-bajo distintas condiciones de carga. La carga en los otros núcleos no cambia el resultado.
+\paragraph{Entropía fresca por ciclo.} En cada ciclo, la semilla absorbe $\delta = \Delta t \bmod 256$ (con $k = 1$), pero $n_p$ ya está fijado por la semilla, de modo que la entrada nueva es $\delta$ \emph{dado} lo que la semilla determina (Ecuación~\eqref{eq:entropia_fresca}). En la Pi, $\Delta t \approx 1.10 + 1.262\, n_p$ ticks: el 98\,\% de los ciclos cae entre $-1.5$ y $+0.7$ ticks de esa recta, y el percentil 99.9 está en $+4.7$ ticks. Un ciclo es una caminata de unos 2~$\mu$s medida con un reloj de 18.5 ns, de modo que lo que varía es, sobre todo, a qué lado de un flanco del reloj termina el ciclo. Por ejemplo, para $n_p = 3$, 35\,131 de 40\,976 ciclos tienen $\Delta t = 5$.
+
+\paragraph{Procedimiento de la estimación condicional.} La estimación se obtuvo en cinco pasos, aplicados por separado a cada captura:
+\begin{enumerate}
+    \item Se capturó la traza $(n_{p,i}, \Delta t_i)$ de cada ciclo, con sobremuestreo 1, de modo que cada registro corresponde a una absorción de la semilla.
+    \item Se agruparon los ciclos por el valor de $n_p$ y, en cada grupo, se calculó la moda empírica de $\Delta t$, $\mu(n) = \operatorname{moda}(\Delta t \mid n_p = n)$, que es la mejor predicción de un adversario que conoce $n_p$.
+    \item Se calculó el residuo de cada ciclo, $\rho_i = \Delta t_i - \mu(n_{p,i})$, y se representó como el símbolo de 8 bits $(\rho_i + 128) \bmod 256$, para la evaluación con \texttt{ea\_non\_iid}.
+    \item Como estimación directa, se evaluó la Ecuación~\eqref{eq:min_entropia_condicional} con las distribuciones empíricas,
+    \begin{equation}
+        \hat{H}_\infty(\delta \mid n_p) = -\log_2 \sum_n \widehat{\Pr}[n_p = n]\, \max_t \widehat{\Pr}[\delta = t \mid n_p = n],
+    \end{equation}
+    y se repitió condicionando además en uno o dos residuos previos, para detectar memoria entre ciclos.
+    \item Se aplicó \texttt{ea\_non\_iid} a la secuencia de residuos y se tomó su resultado, el mínimo entre la estimación por símbolos y la estimación por bits multiplicada por 8, como la cifra por ciclo.
+\end{enumerate}
+Restar la moda condicional, y no una recta ajustada a todos los datos, es necesario: la parte fraccionaria de la recta varía con $n_p$, de modo que el residuo redondeado respecto de una recta todavía contiene información determinada por la semilla y sobrestima la entropía (véase más adelante). La Tabla~\ref{tab:res_plugin} presenta la estimación directa bajo distintas condiciones de carga. La carga en los otros núcleos no cambia el resultado.
 
 \begin{table}[H]
 \centering
@@ -268,7 +278,7 @@ Computador con Windows (2\,000\,000) & 0.467 \\
 \end{tabularx}
 \end{table}
 
-La Tabla~\ref{tab:res_nist_ciclo} confirma estas cifras con \texttt{ea\_non\_iid}, aplicado al residuo $\Delta t - \operatorname{moda}(\Delta t \mid n_p) + 128$ de cada ciclo. Una entrada anterior, el residuo respecto de una única recta ajustada a todos los datos, obtuvo 0.565 en la Pi, pero es inválida debido a que el desplazamiento fraccionario de la recta varía con $n_p$, de modo que el residuo redondeado todavía contiene información determinada por la semilla.
+La Tabla~\ref{tab:res_nist_ciclo} confirma estas cifras con \texttt{ea\_non\_iid}, aplicado al residuo $\rho + 128$ de cada ciclo (paso 5 del procedimiento). Una entrada anterior, el residuo respecto de una única recta ajustada a todos los datos, obtuvo 0.565 en la Pi, pero es inválida debido a que el desplazamiento fraccionario de la recta varía con $n_p$, de modo que el residuo redondeado todavía contiene información determinada por la semilla.
 
 \begin{table}[H]
 \centering
@@ -277,7 +287,7 @@ La Tabla~\ref{tab:res_nist_ciclo} confirma estas cifras con \texttt{ea\_non\_iid
 \small
 \begin{tabular}{@{}lccccccc@{}}
 \toprule
-\textbf{Anfitrión} & \textbf{MCV} & \textbf{\textit{t-tuple}} & \textbf{MultiMMC} & \textbf{LZ78Y} & \textbf{$8 H_{\text{bits}}$} & \textbf{Estimado} & \textbf{Por byte} \\
+\textbf{Anfitrión} & \textbf{MCV} & \textbf{\textit{t-tuple}} & \textbf{MultiMMC} & \textbf{LZ78Y} & \textbf{$8\,H_{\text{bitstring}}$} & \textbf{$\hat{H}_\infty$} & \textbf{Por byte} \\
 \midrule
 Raspberry Pi 4 & 0.419 & 0.408 & 0.419 & 0.420 & \textbf{0.375} & \textbf{0.375} & $\approx 1.9$ \\
 Windows & 0.461 & 0.415 & 0.461 & 0.463 & \textbf{0.407} & \textbf{0.407} & $\approx 2.0$ \\
@@ -285,7 +295,17 @@ Windows & 0.461 & 0.415 & 0.461 & 0.463 & \textbf{0.407} & \textbf{0.407} & $\ap
 \end{tabular}
 \end{table}
 
-Así, los anfitriones rápidos no son determinísticos, pero cada ciclo aporta entre 0.375 y 0.407 bits de min-entropía fresca según el NIST, es decir, unos 2 bits por byte de salida con la configuración por defecto, frente a los 8 bits por byte que contabiliza el diseño. Para respaldar 8 bits por byte a 0.375 bits por ciclo, la referencia necesitaría unos 22 ciclos por byte (unos 16 kB/s en la Pi), o bien la contabilidad explícita de la variante IoT aplicada al temporizador del anfitrión.
+\paragraph{Supuestos de la estimación.} Las cifras anteriores descansan en cinco supuestos, que delimitan su interpretación:
+\begin{enumerate}
+    \item \textbf{Modelo de adversario.} El adversario conoce el código, la semilla inicial y, por tanto, $n_p$ en cada ciclo, pero no observa la perturbación $\varepsilon$ ni controla la carga del equipo. Un adversario que pueda inducir carga o medir el equipo desde otro proceso podría reducir la entropía efectiva.
+    \item \textbf{$n_p$ como única variable condicionante.} El tiempo de un ciclo depende también de otros valores determinados por la semilla: los rechazos de la reducción de Lemire, el recorrido de memoria y los saltos de la caminata. Condicionar solo en $n_p$ deja esa información en el residuo, de modo que, frente a un adversario que conoce la semilla y puede simular el ciclo completo, la cifra es una \emph{cota superior} de la entropía fresca. La estimación es conservadora en el sentido de SP 800-90B, pero optimista respecto de ese adversario.
+    \item \textbf{Estacionariedad.} Los estimadores suponen que la distribución del residuo no cambia durante la captura. La frecuencia de la CPU de la Pi varía entre 0.6 y 1.5 GHz, mientras que su temporizador genérico avanza a 54 MHz constantes; las capturas con el proceso fijado a un núcleo y con carga controlada dieron cifras similares, lo que sugiere que el supuesto es razonable en las condiciones evaluadas.
+    \item \textbf{Estimación de la moda.} Para valores grandes de $n_p$ hay pocos ciclos por grupo y la moda empírica es menos fiable, pero esos grupos tienen poco peso en la suma, porque $n_p$ es geométrico.
+    \item \textbf{Representación en 8 bits.} El pliegue de $\rho + 128$ módulo 256 solo afecta a residuos mayores que 127 \textit{ticks} en valor absoluto, que previsiblemente corresponden a ciclos interrumpidos por el sistema operativo y están muy por encima del percentil 99.9 ($+4.7$ \textit{ticks}); su peso en la estimación es despreciable.
+\end{enumerate}
+Con estos supuestos, la conclusión no depende de los detalles finos de la estimación: la estimación directa y los estimadores de \texttt{ea\_non\_iid} coinciden en que cada ciclo aporta menos de medio bit.
+
+Así, los anfitriones rápidos no son determinísticos, pero cada ciclo aporta entre 0.375 y 0.407 bits de min-entropía fresca según el NIST, es decir, unos 2 bits por byte de salida con la configuración por defecto ($5 \times 0.375 \approx 1.9$ y $5 \times 0.407 \approx 2.0$), frente a los 8 bits por byte que contabiliza el diseño. Este resultado es importante porque muestra que el problema no se limita a los microcontroladores: incluso en las plataformas para las que QPP-RNG fue diseñado y evaluado, y en las que la hipótesis H1 no se refuta por determinismo, sí se refuta en su parte cuantitativa, porque la contabilidad del diseño es optimista en un factor cercano a cuatro. Para respaldar 8 bits por byte a 0.375 bits por ciclo, la referencia necesitaría unos 22 ciclos por byte (unos 16 kB/s en la Pi), o bien la contabilidad explícita de la variante IoT aplicada al temporizador del anfitrión.
 
 \paragraph{La batería completa no lo detecta.} La Tabla~\ref{tab:res_bateria_pi} presenta la batería completa sobre muestras de 1\,000\,000 de bytes de los cuatro candidatos de la librería, generadas en la Pi. SP 800-22 se ejecutó sobre los mismos archivos en WSL, con un directorio de trabajo por candidato y sin pruebas abortadas, y los valores de SP 800-90B coincidieron con los de la Pi en todos los dígitos.
 
@@ -439,9 +459,9 @@ La Tabla~\ref{tab:sintesis_resultados} resume los resultados frente a las pregun
 \textbf{Pregunta} & \textbf{Resultado} \\
 \midrule
 ¿Reproduce la referencia el comportamiento publicado? & Parcialmente. Reproduce la min-entropía IID publicada (7.85 bits por byte), pero la salida cruda no supera SP 800-22 ni ENT por un sesgo estructural del bit 7, que se predice con exactitud, acondicionada, supera las pruebas a la tasa esperada por azar. \\
-¿Hay entropía en el \textit{jitter} de ejecución en microcontroladores? & No. En las cuatro placas, incluida la ESP32, que ejecuta desde Flash a través de una caché, la salida es idéntica bit a bit tras cada reinicio. En anfitriones rápidos sí la hay, pero solo unos 2 bits por byte, frente a los 8 contabilizados. \\
-¿Qué fuente física la sustituye y a qué costo? & El perro guardián frente al Timer1 en AVR (1.62 y 2.24 bits por muestra; se acreditó 1) y los RNG en hardware del nRF52840 y de la ESP32 (7.24 y 7.15 bits por byte, con la fuente de ruido del ADC activada en la ESP32; se acreditaron 4). La variante IoT alcanza 7.4 B/s en AVR, 101 B/s en el nRF52840 y 385 B/s en la ESP32, con 2.9 a 6.5 KB de \textit{firmware} en los AVR y el nRF52840, y su salida presenta resultados estadísticos globalmente favorables sobre 1\,000\,000 de bytes en las cuatro placas. \\
-¿Se integra con Ascon-AEAD128 en un microcontrolador de 8 bits? & Sí. La pila completa ocupa entre 15.7 y 21.0 KB de Flash con los \textit{backends} compactos y cabe en un ATmega328P. En las cuatro placas generó una clave distinta en cada reinicio y cifró y descifró de forma idéntica a \texttt{ascon-c}; la primera clave tarda 8.7 a 8.8~s en AVR, 0.7~s en el nRF52840 y 0.2~s en la ESP32, y cifrar 64 bytes, 7.8 y 0.23~ms en AVR y en el nRF52840. Ascon supera KAT, ACVP y las pruebas diferenciales. \\
+¿Aporta el \textit{jitter} de ejecución la entropía contabilizada? (H1) & No. En las cuatro placas, incluida la ESP32, que ejecuta desde Flash a través de una caché, la traza es idéntica bit a bit tras cada reinicio en las condiciones evaluadas. En anfitriones rápidos sí hay entropía, pero solo entre 0.375 y 0.407 bits por ciclo, unos 2 bits por byte frente a los 8 contabilizados. Ninguna prueba de la salida detecta ninguno de los dos déficits. \\
+¿Qué fuente física la sustituye y a qué costo? (H2) & El perro guardián frente al Timer1 en AVR (1.62 y 2.24 bits por muestra; se acreditó 1) y los RNG en hardware del nRF52840 y de la ESP32 (7.24 y 7.15 bits por byte, con la fuente de ruido del ADC activada en la ESP32; se acreditaron 4). La variante IoT alcanza 7.4 B/s en AVR, 101 B/s en el nRF52840 y 385 B/s en la ESP32, con 2.9 a 6.5 KB de \textit{firmware} en los AVR y el nRF52840, y su salida presenta resultados estadísticos globalmente favorables sobre 1\,000\,000 de bytes en las cuatro placas. \\
+¿Se integra con Ascon-AEAD128 en un microcontrolador de 8 bits? (H2) & Sí. La pila completa ocupa entre 15.7 y 21.0 KB de Flash con los \textit{backends} compactos y cabe en un ATmega328P. En las cuatro placas generó una clave distinta en cada reinicio y cifró y descifró de forma idéntica a \texttt{ascon-c}; la primera clave tarda 8.7 a 8.8~s en AVR, 0.7~s en el nRF52840 y 0.2~s en la ESP32, y cifrar 64 bytes, 7.8 y 0.23~ms en AVR y en el nRF52840. Ascon supera KAT, ACVP y las pruebas diferenciales. \\
 \bottomrule
 \end{tabularx}
 \end{table}

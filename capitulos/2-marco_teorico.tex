@@ -4,17 +4,13 @@
 %%=============================================================================
 \chapter{Marco teórico}
 
-El presente capítulo desarrolla los conceptos teóricos necesarios para comprender el diseño, la implementación y la evaluación de una librería criptográfica ligera basada en QPP-RNG para dispositivos IoT críticos. Mientras que el capítulo anterior presentó una revisión del estado del arte, este capítulo formaliza los fundamentos técnicos que sustentan la investigación: restricciones computacionales en dispositivos embebidos, principios de seguridad criptográfica, generación de números aleatorios, medidas de entropía, pruebas estadísticas de aleatoriedad, cifrado autenticado, ASCON, Quantum Permutation Pad (QPP), QPP-RNG, Rust y métricas de evaluación experimental.
+El presente capítulo desarrolla los conceptos teóricos necesarios para comprender el diseño, la implementación y la evaluación de una librería criptográfica ligera basada en QPP-RNG para dispositivos IoT críticos. El capítulo anterior describió la literatura, las categorías de generadores y las fuentes de entropía disponibles; este capítulo no repite esa revisión, sino que formaliza los conceptos que los capítulos siguientes usan de manera cuantitativa: las medidas de entropía y su notación, el modelo de un generador determinístico y del acondicionamiento, las pruebas estadísticas, el cifrado autenticado y ASCON, el espacio de permutaciones de QPP, el modelo del ciclo de QPP-RNG, Rust y las métricas de evaluación.
 
 La tesis se ubica en la intersección de tres áreas principales: criptografía ligera, generación de entropía y seguridad del software para sistemas embebidos. Esta combinación exige considerar tanto las propiedades matemáticas como las restricciones prácticas de implementación. Por un lado, un mecanismo criptográfico debe ofrecer garantías de confidencialidad, integridad y autenticidad. Por otra parte, debe operar de manera eficiente en plataformas con recursos limitados. Finalmente, debe implementarse en un lenguaje y una arquitectura de software que reduzcan los errores comunes asociados al manejo inseguro de la memoria, a las condiciones de carrera o a las dependencias no verificadas.
 
 \section{Dispositivos IoT con recursos restringidos}
 
-Un dispositivo IoT con recursos restringidos puede definirse como un sistema computacional embebido diseñado para ejecutar una función específica, generalmente mediante sensores, actuadores o módulos de comunicación, bajo limitaciones severas de memoria, capacidad de procesamiento, almacenamiento y consumo energético \cite{Seyhan2022ClassificationTaxonomy,Dhanda2020LightweightIoT}. A diferencia de un computador convencional, estos dispositivos no están diseñados para ejecutar múltiples aplicaciones arbitrarias, sino para realizar tareas concretas dentro de una arquitectura distribuida.
-
-Las restricciones más relevantes para esta investigación se derivan de las limitaciones propias de los dispositivos IoT. En primer lugar, la memoria RAM disponible suele ser de apenas unos pocos kilobytes, lo que limita el tamaño de los buffers, los estados criptográficos y las estructuras auxiliares que pueden utilizarse. Asimismo, la memoria Flash es limitada, por lo que el firmware debe mantenerse lo más compacto posible y las bibliotecas criptográficas no pueden depender de implementaciones excesivamente pesadas. A ello se suma la reducida capacidad de procesamiento de estos dispositivos, ya que la baja frecuencia del procesador y la ausencia de unidades especializadas pueden incrementar el tiempo necesario para ejecutar operaciones criptográficas. También existen importantes restricciones energéticas, debido a que muchos dispositivos funcionan con baterías y deben operar durante largos periodos de tiempo sin requerir mantenimiento. Finalmente, la conectividad suele estar limitada por los protocolos de comunicación utilizados, que pueden imponer restricciones en el ancho de banda, el tamaño de los paquetes, la latencia y el consumo energético asociado a cada transmisión.
-
-Estas restricciones condicionan directamente el diseño criptográfico. Un algoritmo seguro en teoría puede resultar poco práctico si requiere demasiada memoria, si incrementa significativamente el tiempo de respuesta o si reduce la vida útil de la batería. Por esta razón, la seguridad en IoT debe evaluarse como un equilibrio entre la robustez criptográfica y la viabilidad computacional.
+Un dispositivo IoT con recursos restringidos puede definirse como un sistema computacional embebido diseñado para ejecutar una función específica bajo limitaciones severas de memoria, capacidad de procesamiento, almacenamiento y consumo energético \cite{Seyhan2022ClassificationTaxonomy,Dhanda2020LightweightIoT}. Las restricciones descritas en el Capítulo~1 se traducen en límites concretos para el diseño criptográfico, que la Tabla~\ref{tab:restricciones_iot} resume y que se usan como criterios de viabilidad en los capítulos siguientes. A ellas se suma una restricción menos visible y central para esta tesis: un microcontrolador sin sistema operativo ejecuta un programa fijo, con un reloj fijo y sin otros procesos que lo perturben, de modo que su comportamiento temporal es, en principio, reproducible.
 
 \begin{table}[H]
 \centering
@@ -88,129 +84,79 @@ En esta tesis, la impredecibilidad es una propiedad central, dado que QPP-RNG se
 \section{Aleatoriedad y entropía}
 \label{sec:aleatoriedad_entropia}
 
-La aleatoriedad es un concepto fundamental en criptografía. La seguridad de claves, semillas, nonces, vectores de inicialización y parámetros efímeros depende de que estos valores sean lo suficientemente impredecibles. Una fuente de aleatoriedad deficiente puede comprometer incluso algoritmos criptográficos robustos.
+La seguridad de claves, semillas, \textit{nonces} y vectores de inicialización depende de que estos valores sean impredecibles para un adversario. Esta sección fija la notación que se usa en el resto del documento para cuantificar esa impredecibilidad.
 
-\subsection{Variable aleatoria discreta}
+\subsection{Notación}
 
-Sea $X$ una variable aleatoria discreta definida sobre un espacio finito $\mathcal{X}$. Cada posible valor $x \in \mathcal{X}$ tiene asociada una probabilidad $P(X=x)$. En criptografía, $X$ puede interpretarse como el valor generado por una fuente de entropía, por ejemplo, un byte, una clave o una semilla \cite{Shannon1949CommunicationSystems}.
-
-Cuando todos los valores posibles tienen la misma probabilidad, se dice que la distribución es uniforme. Para un byte aleatorio ideal, el espacio de valores posibles tiene tamaño $256$, y cada valor ocurre con probabilidad:
-
-\begin{equation}
-    P(X=x) = \frac{1}{256}
-\end{equation}
-
-En este caso, cada byte contiene, idealmente, $8$ bits de incertidumbre.
-
-\subsection{Entropía de Shannon}
-
-La entropía de Shannon mide la incertidumbre promedio de una variable aleatoria \cite{Shannon1949CommunicationSystems}. Se define como:
-
-\begin{equation}
-    H(X) = - \sum_{x \in \mathcal{X}} P(X=x)\log_2 P(X=x)
-\end{equation}
-
-Si $X$ sigue una distribución uniforme sobre $N$ valores posibles, entonces:
-
-\begin{equation}
-    H(X) = \log_2 N
-\end{equation}
-
-Para un byte uniforme, $N=256$, por lo que:
-
-\begin{equation}
-    H(X) = \log_2 256 = 8
-\end{equation}
-
-La entropía de Shannon es útil para medir la incertidumbre promedio, pero en criptografía no siempre es suficiente, ya que un adversario puede explotar el valor más probable de una distribución.
-
-\subsection{Min-Entropía}
-
-La min-entropía mide la dificultad de adivinar el valor más probable que produce una fuente \cite{Turan2018RecommendationGeneration}. Se define como:
-
-\begin{equation}
-    H_{\infty}(X) = -\log_2\left(\max_{x \in \mathcal{X}} P(X=x)\right)
-\end{equation}
-
-Esta medida es especialmente relevante en criptografía porque establece un límite conservador a la incertidumbre disponible. Si un valor específico ocurre con alta probabilidad, la min-entropía disminuye, incluso si la entropía promedio parece aceptable.
-
-Para un byte idealmente uniforme:
-
-\begin{equation}
-    H_{\infty}(X) = -\log_2\left(\frac{1}{256}\right) = 8
-\end{equation}
-
-En cambio, si el valor más probable aparece con probabilidad $1/16$, la min-entropía sería:
-
-\begin{equation}
-    H_{\infty}(X) = -\log_2\left(\frac{1}{16}\right) = 4
-\end{equation}
-
-Esto significa que, desde la perspectiva de un atacante, la fuente ofrece, como máximo, $4$ bits de incertidumbre efectiva por muestra.
-
-\subsection{Sesgo y correlación}
-
-Una fuente aleatoria puede presentar sesgo cuando algunos valores ocurren con mayor frecuencia que otros. También puede presentar correlación cuando la aparición de un valor depende de valores anteriores. Ambos fenómenos reducen la utilidad criptográfica de la fuente.
-
-Sea $(X_1, X_2, \ldots, X_n)$ una secuencia producida por una fuente. Idealmente, los valores deberían ser independientes e idénticamente distribuidos. Sin embargo, en fuentes reales pueden existir dependencias temporales. Por ejemplo, en una fuente basada en temporizadores, las variaciones pueden verse influidas por la frecuencia del procesador, las interrupciones periódicas o el comportamiento del sistema operativo.
-
-Por esta razón, la evaluación de una fuente de entropía no debe limitarse a calcular las frecuencias. Debe incluir pruebas de independencia, análisis de correlación y una estimación conservadora de min-entropía.
-
-\section{Generadores de números aleatorios}
-\label{sec:generadores_rng}
-
-Los generadores de números aleatorios pueden clasificarse en generadores verdaderos, generadores pseudoaleatorios y generadores criptográficamente seguros. En sistemas reales, estos mecanismos suelen combinarse. Una fuente no determinística produce entropía inicial, luego un acondicionador o extractor mejora sus propiedades estadísticas, y finalmente un generador determinístico criptográficamente seguro expande la semilla para producir más bits.
-
-\subsection{\textit{True Random Number Generators}}
-
-Un \textit{True Random Number Generator} (TRNG) obtiene aleatoriedad a partir de fenómenos físicos no determinísticos \cite{Barker2015RecommendationGenerators}. Algunos ejemplos incluyen el ruido térmico, los osciladores de anillo, las fluctuaciones eléctricas, el ruido cuántico o las variaciones ambientales.
-
-La principal ventaja de un TRNG es que puede generar entropía real. Sin embargo, también presenta limitaciones, como la necesidad de utilizar hardware especializado o de ser calibrado y monitoreado continuamente, el incremento del costo del dispositivo, la falta de disponibilidad en microcontroladores económicos, entre otras.
-
-\subsection{\textit{Pseudo Random Number Generators}}
-
-Un \textit{Pseudo Random Number Generator} (PRNG) produce secuencias aparentemente aleatorias a partir de una semilla inicial \cite{Katz2020IntroductionCryptography}. Dado que el proceso es determinístico, la misma semilla siempre produce la misma secuencia.
-
-Un PRNG convencional puede ser útil para simulaciones o pruebas, pero no necesariamente es seguro para criptografía. Si un atacante conoce o recupera la semilla, puede reconstruir toda la secuencia. Por tanto, en contextos criptográficos se requieren generadores con propiedades adicionales.
-
-\subsection{\textit{Cryptographically Secure Pseudo Random Number Generators}}
-
-Un \textit{Cryptographically Secure Pseudo-Random Number Generator} (CSPRNG) está diseñado para resistir la predicción por parte de un adversario \cite{Barker2015RecommendationGenerators}. En términos generales, debe cumplir dos propiedades:
-
-\begin{itemize}
-    \item \textbf{Indistinguibilidad:} su salida debe ser computacionalmente indistinguible de una secuencia aleatoria ideal.
-    \item \textbf{Resistencia a compromiso de estado:} si un atacante observa parte de la salida, no debe poder recuperar salidas pasadas ni predecir salidas futuras sin conocer el estado interno.
-\end{itemize}
-
-La seguridad de un CSPRNG depende críticamente de la calidad de la semilla inicial. Si la semilla tiene baja entropía, la salida puede ser predecible aunque el algoritmo interno sea robusto. Por esta razón, las fuentes de entropía son componentes esenciales de cualquier arquitectura criptográfica.
-
-\subsection{Acondicionamiento de entropía}
-
-Las fuentes físicas o de software pueden producir datos sesgados o correlacionados. El acondicionamiento de entropía busca transformar estas muestras crudas en una salida con mejores propiedades estadísticas. Este proceso puede implementarse mediante funciones hash criptográficas, construcciones del tipo extractor, mezclas no lineales o mecanismos basados en el cifrado.
-
-De manera general, puede representarse como:
-
-\begin{equation}
-    Y = \text{Cond}(X_1, X_2, \ldots, X_n)
-\end{equation}
-
-donde $X_i$ son muestras crudas de la fuente y $Y$ es la salida acondicionada. El acondicionamiento no crea entropía de la nada; su función es concentrar y distribuir la entropía existente en la entrada.
+Sea $X$ una variable aleatoria discreta sobre un alfabeto finito $\mathcal{X}$, con $p_x = \Pr[X = x]$ para cada $x \in \mathcal{X}$ \cite{Shannon1949CommunicationSystems}. En este trabajo, $X$ representa una \emph{muestra} de una fuente: un byte de salida, la lectura de un oscilador, la palabra de un RNG en hardware o la medición de tiempo de un ciclo de QPP-RNG. Todas las entropías se expresan en bits y siempre se indica la unidad a la que se refieren: \emph{por muestra}, \emph{por ciclo} o \emph{por byte de salida}. La Tabla~\ref{tab:notacion_entropia} resume los símbolos.
 
 \begin{table}[H]
 \centering
-\caption{Comparación entre tipos de generadores de números aleatorios}
-\label{tab:comparacion_rng}
-\begin{tabularx}{\textwidth}{@{}p{0.20\textwidth}p{0.26\textwidth}p{0.25\textwidth}X@{}}
+\caption{Notación de entropía utilizada en el documento}
+\label{tab:notacion_entropia}
+\begin{tabularx}{\textwidth}{@{}L{0.22\textwidth}Y@{}}
 \toprule
-\textbf{Tipo} & \textbf{Fuente} & \textbf{Ventaja} & \textbf{Limitación} \\
+\textbf{Símbolo} & \textbf{Significado} \\
 \midrule
-TRNG & Fenómeno físico & Produce entropía no determinística & Puede requerir hardware especializado \\
-PRNG & Algoritmo determinístico & Rápido y reproducible & No necesariamente seguro para criptografía \\
-CSPRNG & Semilla secreta y construcción criptográfica & Adecuado para protocolos seguros & Depende de una semilla con alta entropía \\
-RNG basado en jitter & Variaciones temporales y microarquitecturales & Portable y sin hardware adicional & Requiere validación estadística rigurosa \\
+$H(X)$ & Entropía de Shannon de $X$ (incertidumbre promedio) \\
+$H_\infty(X)$ & Min-entropía de $X$ (incertidumbre en el peor caso) \\
+$H_\infty(X \mid Y)$ & Min-entropía condicional promedio de $X$ dado $Y$ \\
+$\hat{H}_\infty$ & Estimación de min-entropía por muestra obtenida con \texttt{ea\_iid} o \texttt{ea\_non\_iid} de SP 800-90B \\
+$h$ & Valor de min-entropía \emph{acreditado} por muestra, fijado por debajo de $\hat{H}_\infty$ \\
+$e = \log_2 N!$ & Entropía que el diseño de QPP-RNG \emph{contabiliza} por ciclo de convergencia \\
 \bottomrule
 \end{tabularx}
 \end{table}
+
+La distinción entre $\hat{H}_\infty$ y $h$ es deliberada: la primera es el resultado de un estimador sobre una captura concreta, y la segunda es la cifra que el diseño usa para decidir cuántas muestras absorber y cómo configurar las pruebas de salud. Una afirmación del tipo ``la fuente aporta $h$ bits por muestra'' solo está justificada si $h \leq \hat{H}_\infty$ con un margen, y si $\hat{H}_\infty$ se obtuvo sobre la fuente cruda.
+
+\subsection{Entropía de Shannon y min-entropía}
+
+La entropía de Shannon mide la incertidumbre promedio de $X$:
+\begin{equation}
+    H(X) = - \sum_{x \in \mathcal{X}} p_x \log_2 p_x .
+\end{equation}
+La min-entropía mide la dificultad de adivinar $X$ en un solo intento, es decir, depende únicamente del valor más probable \cite{Turan2018RecommendationGeneration}:
+\begin{equation}
+    H_\infty(X) = -\log_2 \max_{x \in \mathcal{X}} p_x .
+    \label{eq:min_entropia}
+\end{equation}
+Para cualquier distribución se cumple $H_\infty(X) \leq H(X) \leq \log_2 |\mathcal{X}|$, con igualdad si y solo si $X$ es uniforme. Para un byte uniforme, $|\mathcal{X}| = 256$ y ambas medidas valen 8 bits. Si, en cambio, el valor más probable de un byte aparece con probabilidad $1/16$, entonces $H_\infty(X) = 4$ bits, aunque $H(X)$ pueda estar muy cerca de 8: un adversario que siempre apuesta por ese valor acierta una vez de cada 16. Por esta razón, en criptografía, y en SP 800-90B, la entropía de una fuente se cuantifica con $H_\infty$ y no con $H$. La ``entropía por byte'' que reporta la herramienta ENT es la entropía de Shannon de la distribución empírica de los bytes, y por eso no se usa en este trabajo para acreditar entropía.
+
+\subsection{Secuencias, independencia y min-entropía condicional}
+
+Las fuentes reales producen secuencias $(X_1, X_2, \ldots, X_n)$ cuyas muestras pueden estar sesgadas, correlacionadas o derivar lentamente. Si las muestras son independientes e idénticamente distribuidas (IID), la min-entropía de la secuencia es $n\,H_\infty(X_1)$. Si no lo son, lo que importa es la incertidumbre de cada muestra \emph{dado} lo que el adversario ya conoce. Para dos variables $X$ e $Y$, la min-entropía condicional promedio se define como
+\begin{equation}
+    H_\infty(X \mid Y) = -\log_2 \sum_{y} \Pr[Y = y]\, \max_{x} \Pr[X = x \mid Y = y],
+    \label{eq:min_entropia_condicional}
+\end{equation}
+que mide la probabilidad de que un adversario que observa $Y$ adivine $X$ con la mejor estrategia posible. Se cumple $H_\infty(X \mid Y) \leq H_\infty(X)$: conocer $Y$ nunca aumenta la incertidumbre sobre $X$.
+
+Esta definición es la que permite cuantificar la entrada nueva de un sistema con realimentación. Si una medición $X_i$ depende en parte del estado $S_i$ del generador, y $S_i$ es una función determinística del estado inicial y de las mediciones anteriores, la entropía que $X_i$ aporta frente a un adversario que conoce el estado inicial es, a lo sumo, $H_\infty(X_i \mid S_i)$. A esta cantidad se le llama, en este documento, \emph{entropía fresca} por muestra. Su estimación práctica para QPP-RNG se describe en la Sección~\ref{sec:res_anfitriones}.
+
+Los estimadores de SP 800-90B no calculan la Ecuación~\eqref{eq:min_entropia} directamente, porque la distribución es desconocida. La vía IID verifica primero, con pruebas de permutación, que la secuencia es compatible con la hipótesis IID y, si lo es, estima la probabilidad del valor más común con un intervalo de confianza. La vía no IID aplica diez estimadores que buscan distintos tipos de estructura (valor más común, colisiones, compresión, tuplas repetidas, predictores) y toma el mínimo, de modo que $\hat{H}_\infty$ es una estimación conservadora de la min-entropía de una fuente estacionaria \cite{Turan2018RecommendationGeneration}.
+
+\section{Generadores determinísticos y acondicionamiento}
+\label{sec:generadores_rng}
+
+El Capítulo~1 (Sección~\ref{sec:categorias_rng}) distinguió entre fuentes de entropía, TRNG y DRBG. Esta sección formaliza los dos componentes determinísticos de esa arquitectura que intervienen en el diseño: el DRBG y la función de acondicionamiento.
+
+\subsection{Modelo de un DRBG}
+
+Un DRBG de SP 800-90A se describe mediante tres operaciones sobre un estado interno secreto $V$ \cite{Barker2015RecommendationGenerators}:
+\begin{equation}
+    V_0 = \text{Instantiate}(E_0, \eta), \qquad (V_{j+1}, R_j) = \text{Generate}(V_j, \ell), \qquad V' = \text{Reseed}(V, E),
+\end{equation}
+donde $E_0$ y $E$ son entradas de entropía obtenidas de una fuente, $\eta$ es un \textit{nonce} de instanciación y $R_j$ son $\ell$ bits de salida. Un DRBG tiene una \emph{fortaleza de seguridad} $s$ (por ejemplo, 128 o 256 bits), y la norma exige que la entrada de entropía de la instanciación tenga al menos $s$ bits de min-entropía. Dos propiedades describen su comportamiento frente a un compromiso del estado: la \emph{resistencia al retroceso}, según la cual conocer $V_j$ no permite reconstruir salidas anteriores, y la \emph{resistencia a la predicción}, según la cual, tras un compromiso, las salidas vuelven a ser impredecibles solo después de una resiembra con entropía nueva \cite{Barker2015RecommendationGenerators,Dodis2013NotRobust}. Un DRBG no puede ser más fuerte que la entropía de su semilla: si $H_\infty(E_0) < s$, un adversario puede enumerar las semillas probables.
+
+\subsection{Acondicionamiento de entropía}
+
+Una función de acondicionamiento recibe $n_{\text{in}}$ bits de muestras crudas con una min-entropía total $h_{\text{in}}$ y produce $n_{\text{out}}$ bits, $Y = \text{Cond}(X_1, \ldots, X_m)$. Como la función es determinística, no puede crear entropía:
+\begin{equation}
+    H_\infty(Y) \leq \min\left(h_{\text{in}},\; n_{\text{out}}\right).
+    \label{eq:cota_acondicionamiento}
+\end{equation}
+Para funciones aprobadas, como SHA-256, SP 800-90B proporciona una fórmula para la entropía de la salida que se aproxima a esa cota, y las recomendaciones del NIST consideran que la salida tiene entropía completa cuando la entrada aporta al menos $n_{\text{out}} + 64$ bits de min-entropía \cite{Turan2018RecommendationGeneration}. Dos consecuencias se usan en el Capítulo~\ref{cap:diseno}. Primera, $n_{\text{out}}$ bits de salida nunca contienen más de $n_{\text{out}}$ bits de entropía, sin importar cuánta entrada se absorba. Segunda, la cota solo es útil si $h_{\text{in}}$ se conoce: cualquier transformación determinística previa al acondicionador, si no se ha demostrado que conserva la entropía, convierte la cifra acreditada en la fuente en una cota superior de lo que llega al acondicionador, y no en una garantía.
 
 \section{Evaluación estadística de aleatoriedad}
 \label{sec:evaluacion_estadistica}
@@ -231,7 +177,7 @@ NIST SP 800-90B se enfoca en la evaluación de las fuentes de entropía \cite{Tu
 
 La metodología distingue entre fuentes independientes e idénticamente distribuidas y fuentes no independientes. Esta distinción es importante porque muchas fuentes reales, especialmente aquellas basadas en eventos físicos o temporales, pueden presentar dependencia entre las muestras.
 
-La salida principal del análisis es una estimación de min-entropía por muestra. Esta estimación permite determinar cuántos bits de incertidumbre pueden atribuirse, de manera conservadora, a la fuente. En el contexto de QPP-RNG, esta métrica resulta central para determinar cuánta entropía aporta la fuente de ruido (en la variante propuesta, un oscilador físico); no se aplica a la salida acondicionada, cuya entropía se deriva de la entrada y de la función de acondicionamiento.
+La salida principal del análisis es una estimación $\hat{H}_\infty$ de min-entropía por muestra (Sección~\ref{sec:aleatoriedad_entropia}). Los estimadores admiten símbolos de hasta 8 bits; además de evaluar la secuencia de símbolos, la herramienta evalúa la secuencia de bits correspondiente y reporta como resultado el mínimo entre la estimación por símbolos, $H_{\text{original}}$, y la estimación por bits multiplicada por el ancho del símbolo, $8\,H_{\text{bitstring}}$. En el contexto de QPP-RNG, esta métrica resulta central para determinar cuánta entropía aporta la fuente de ruido (en la variante propuesta, un oscilador físico o un RNG en hardware); no se aplica a la salida acondicionada, cuya entropía se deriva de la entrada y de la función de acondicionamiento (Ecuación~\eqref{eq:cota_acondicionamiento}).
 
 \subsection{ENT}
 
@@ -303,9 +249,7 @@ Esta estructura permite garantizar la confidencialidad y la integridad en una ú
 
 \subsection{Relación entre ASCON y fuentes de entropía}
 
-Aunque ASCON proporciona un mecanismo robusto de cifrado autenticado, no elimina la necesidad de una fuente de entropía confiable. La clave secreta debe generarse a partir de material aleatorio de alta calidad. Además, dependiendo del diseño del protocolo, los nonces pueden requerir la generación aleatoria o la inicialización segura de contadores.
-
-Por tanto, el desempeño de ASCON en un dispositivo IoT debe evaluarse junto con el mecanismo utilizado para generar claves y parámetros criptográficos. Esta tesis toma ASCON como referencia en el ámbito de la criptografía ligera y estudia QPP-RNG como una posible fuente de entropía complementaria.
+Ascon-AEAD128 usa una clave $K$ de 128 bits y un \textit{nonce} $N$ de 128 bits \cite{Turan2025Ascon-BasedFunctions}. Su seguridad de 128 bits supone que $K$ es uniforme, es decir, que $H_\infty(K) = 128$; si $H_\infty(K) = k < 128$, un adversario puede encontrar la clave con del orden de $2^k$ intentos, sin importar la solidez de la permutación. El \textit{nonce}, en cambio, no necesita ser secreto, pero no debe repetirse con la misma clave. Si se elige al azar, la probabilidad de que $q$ \textit{nonces} uniformes de 128 bits contengan una repetición es aproximadamente $q^2/2^{129}$; esa cifra deja de ser válida si la fuente no es uniforme o si se repite entre reinicios. Estas dos condiciones, que la corrección de la implementación de Ascon no puede garantizar, son las que conectan el cifrado con la fuente de entropía.
 
 \section{\textit{Quantum Permutation Pad}}
 \label{sec:qpp}
@@ -395,40 +339,33 @@ Usando aproximaciones derivadas de Stirling, para valores grandes de $n$ esta ca
 \end{tabularx}
 \end{table}
 
-\section{QPP-RNG}
+\section{Modelo del ciclo de QPP-RNG}
 \label{sec:qpp_rng}
 
-QPP-RNG es un generador de números aleatorios basado en software que busca aprovechar las fuentes de variabilidad presentes en sistemas computacionales \cite{Kuang2025QPP-RNG:Randomness}. En lugar de depender exclusivamente de hardware especializado, utiliza fenómenos como el \textit{jitter} temporal, el comportamiento microarquitectónico, el acceso a la memoria, las variaciones de ejecución y los eventos del sistema operativo.
+El Capítulo~1 (Sección~\ref{sec:qpp_rng_referencia}) describió la propuesta de QPP-RNG y sus supuestos. Esta sección la formaliza como un sistema con realimentación, porque esa estructura es la que determina qué parte de cada medición es entrada nueva.
 
-\subsection{\textit{Jitter} como fuente de entropía}
+\subsection{El ciclo como sistema con realimentación}
 
-El \textit{Jitter} se refiere a pequeñas variaciones temporales en la ejecución de instrucciones, en las interrupciones, en los accesos a la memoria o en los eventos del sistema \cite{Kuang2025IID-BasedJitter}. Aunque un programa pueda parecer determinístico, su ejecución real en hardware moderno puede variar debido a múltiples factores (el estado de la memoria, las interrupciones del sistema, la planificación de procesos, la predicción de saltos, las variaciones de frecuencia, la contención por recursos internos, el ruido eléctrico o térmico, etc.).
+Sea $s_i$ la semilla al comienzo del ciclo $i$ y $G$ el generador pseudoaleatorio interno. El ciclo $i$ consta de tres pasos \cite{Kuang2025IID-BasedJitter,Vrana2025RawEvaluation}:
+\begin{align}
+    n_{p,i} &= W(s_i), \label{eq:ciclo_np}\\
+    \Delta t_i &= T(s_i) + \varepsilon_i, \label{eq:ciclo_dt}\\
+    s_{i+1} &= U(s_i, \delta_i), \qquad \delta_i = \left\lfloor \Delta t_i / k \right\rfloor \bmod 256. \label{eq:ciclo_s}
+\end{align}
+$W$ es la caminata en $S_N$: se reinicializa $G$ con $s_i$, se componen permutaciones generadas por $G$ desde la identidad y $n_{p,i}$ es el número de pasos hasta volver a ella. Como $G$ es determinístico, $n_{p,i}$ es una función de $s_i$. El tiempo medido $\Delta t_i$ se descompone en una parte $T(s_i)$, que depende del trabajo realizado (el número de pasos, los valores generados, los rechazos y el recorrido de memoria, todos funciones de $s_i$), y una perturbación $\varepsilon_i$ ajena al programa: interrupciones, otros procesos, contención por la memoria o la fase relativa entre el reloj de la CPU y el del temporizador. $k$ es la resolución del temporizador y $U$ es la actualización de la semilla, un desplazamiento que incorpora $\delta_i$. El valor crudo del ciclo es $n_{p,i} \bmod 256$, y la salida por defecto es el XOR de $m$ ciclos consecutivos.
 
-Estas variaciones pueden medirse mediante temporizadores de alta resolución y utilizarse como muestras crudas de entropía. Sin embargo, el jitter no debe asumirse automáticamente como seguro. Es necesario medir, acondicionar y evaluar estadísticamente la salida \cite{Vrana2025RawEvaluation}.
+\subsection{Entropía contabilizada y entropía fresca}
 
-\subsection{Modelo conceptual de QPP-RNG}
-
-De manera general, un generador basado en QPP-RNG puede modelarse mediante cuatro etapas \cite{Kuang2025QPP-RNG:Randomness,Kuang2021PseudoPad}:
-
-\begin{enumerate}
-    \item \textbf{Recolección:} captura de muestras crudas provenientes de fuentes temporales o microarquitectónicas.
-    \item \textbf{Mezcla:} combinación de muestras para reducir sesgos locales y distribuir la variabilidad.
-    \item \textbf{Transformación:} aplicación de operaciones inspiradas en permutaciones o en el acondicionamiento criptográfico.
-    \item \textbf{Salida:} producción de bytes aleatorios para uso criptográfico o para alimentar un CSPRNG.
-\end{enumerate}
-
-Este flujo puede representarse como:
-
+El diseño contabiliza $e = \log_2 N!$ bits por ciclo, que es la entropía de una permutación uniforme de $S_N$. Sin embargo, de las Ecuaciones~\eqref{eq:ciclo_np} a~\eqref{eq:ciclo_s} se sigue que toda la salida es una función determinística de $s_0$ y de la secuencia $(\varepsilon_1, \varepsilon_2, \ldots)$. Para un adversario que conoce el \textit{firmware} y $s_0$, la única entrada nueva del ciclo $i$ es la parte de $\delta_i$ que $s_i$ no determina, y la entropía fresca del ciclo es, según la Ecuación~\eqref{eq:min_entropia_condicional},
 \begin{equation}
-    R = \text{QPP-RNG}(S_1, S_2, \ldots, S_m)
+    H_\infty(\delta_i \mid s_i) \leq \min\!\left( H_\infty(\varepsilon_i),\; 8 \right).
+    \label{eq:entropia_fresca}
 \end{equation}
-
-donde $S_i$ son fuentes de variabilidad y $R$ es la salida generada.
+De aquí se siguen dos casos extremos. Si $\varepsilon_i = 0$, como ocurre cuando el temporizador cuenta el mismo reloj que la CPU y nada externo interrumpe el programa, la entropía fresca es nula y el generador se comporta como un PRNG cuya clave es $s_0$, aunque su salida tenga la apariencia estadística de una secuencia aleatoria. Si $\varepsilon_i$ es pequeña frente a la resolución del temporizador, la entropía fresca es pequeña aunque $\Delta t_i$ varíe mucho entre ciclos, porque casi toda esa variación proviene de $T(s_i)$. En ninguno de los dos casos el tamaño del espacio de permutaciones, $e$, interviene en la cota: la caminata determina \emph{cómo} se mezcla la entrada, no \emph{cuánta} hay. La entropía que el diseño puede respaldar por byte de salida es, por tanto, a lo sumo $m \cdot H_\infty(\delta_i \mid s_i)$, y no $m \cdot e$.
 
 \subsection{Requisitos para uso criptográfico}
 
-Para que QPP-RNG pueda utilizarse como fuente de entropía en una arquitectura criptográfica ligera, debe cumplir al menos los siguientes requisitos, derivados de la evaluación NIST SP 800-90B realizada sobre datos crudos de QPP-RNG en múltiples plataformas \cite{Vrana2025RawEvaluation}: producir salidas con alta min-entropía, superar pruebas estadísticas relevantes, no depender de hardware especializado, tener bajo consumo de memoria, tener latencia aceptable, ser portable entre plataformas, integrarse fácilmente con algoritmos como ASCON, al igual que permitir auditoría y reproducción de experimentos. 
-Estos requisitos guiarán la metodología experimental de los capítulos posteriores.
+Del modelo anterior y de la arquitectura de la Sección~\ref{sec:categorias_rng} se derivan los requisitos que una adaptación de QPP-RNG debe cumplir para usarse como fuente de entropía en una arquitectura criptográfica ligera: (i) su fuente de ruido debe estar físicamente identificada y ser independiente del programa, de modo que $\varepsilon_i$ no sea nula por construcción; (ii) la entropía debe estimarse sobre la fuente cruda, condicionada al estado, y acreditarse con margen; (iii) la fuente debe vigilarse en operación con pruebas de salud; (iv) la salida debe acondicionarse antes de usarse como material de clave; y (v) la construcción debe ser viable en memoria y tiempo en el dispositivo y portable entre plataformas. Estos requisitos guían la metodología experimental de los capítulos posteriores.
 
 \section{Rust como lenguaje para software criptográfico}
 
@@ -455,7 +392,7 @@ La evaluación de una solución criptográfica para IoT no debe limitarse a veri
 
 Las métricas de calidad de aleatoriedad incluyen la entropía por byte, la min-entropía estimada, la proporción de pruebas de NIST SP 800-22 aprobadas, los resultados de NIST SP 800-90B, la correlación serial, la distribución de frecuencias y la compresibilidad.
 
-Estas métricas permiten determinar si la salida generada por QPP-RNG es adecuada como fuente de entropía.
+Las métricas sobre la salida permiten detectar defectos estadísticos, pero no acreditar entropía; la min-entropía acreditable se obtiene de la fuente cruda (Sección~\ref{sec:evaluacion_estadistica}).
 
 \subsection{Tiempo de ejecución}
 
@@ -505,14 +442,8 @@ Integración & Tiempo de generación de claves y nonces & Evaluar utilidad prác
 
 \section{Síntesis del marco teórico}
 
-El marco teórico desarrollado permite establecer la base conceptual de la investigación. En primer lugar, se demostró que los dispositivos IoT críticos imponen restricciones severas en memoria, procesamiento, energía y comunicación. Estas restricciones justifican el uso de criptografía ligera y de lenguajes de programación orientados a la seguridad del software.
+El marco teórico fija los conceptos que los capítulos siguientes usan de forma cuantitativa. Se adoptó una notación única para la entropía: $H$ para la entropía de Shannon, $H_\infty$ para la min-entropía, $H_\infty(\cdot \mid \cdot)$ para la min-entropía condicional, $\hat{H}_\infty$ para las estimaciones de SP 800-90B y $h$ para el valor acreditado, siempre con su unidad (por muestra, por ciclo o por byte). Se formalizaron el modelo de un DRBG, que no produce entropía y está acotado por la de su semilla, y la cota del acondicionamiento, según la cual la salida no puede contener más entropía que la entrada ni más bits que su longitud.
 
-En segundo lugar, se explicó que la seguridad criptográfica depende no solo del algoritmo de cifrado, sino también de la calidad de la entropía utilizada para generar claves, semillas y nonces. Esta observación es central para la tesis, pues QPP-RNG se estudia precisamente como fuente de entropía para arquitecturas criptográficas ligeras.
-
-En tercer lugar, se formalizaron las nociones de entropía de Shannon y de min-entropía, destacando que la segunda resulta especialmente relevante para evaluar fuentes criptográficas. También se presentaron las principales pruebas estadísticas utilizadas para analizar generadores de números aleatorios, entre ellas NIST SP 800-22, NIST SP 800-90B y ENT.
-
-Posteriormente, se describieron los fundamentos de AEAD y ASCON como mecanismos de referencia para el cifrado autenticado en dispositivos restringidos. Aunque ASCON ofrece una construcción eficiente y segura, sigue dependiendo de claves y parámetros generados correctamente.
-
-Finalmente, se introdujeron los fundamentos de QPP, QPP-RNG y Rust. QPP aporta un marco conceptual basado en espacios de permutaciones, crecimiento factorial y no conmutatividad, mientras que QPP-RNG propone aprovechar fuentes de variabilidad de software para generar aleatoriedad sin hardware especializado. Rust, por su parte, ofrece un entorno adecuado para crear una librería segura, modular y portable.
+Se describieron también los fundamentos de AEAD y Ascon-AEAD128, cuya seguridad supone una clave uniforme y \textit{nonces} que no se repiten, y el espacio de permutaciones de QPP. Finalmente, se modeló el ciclo de QPP-RNG como un sistema con realimentación, del que se deriva que la entropía que el generador puede respaldar es la entropía fresca de la medición de tiempo condicionada al estado, y no el tamaño del espacio de permutaciones. Rust, por su parte, ofrece un entorno adecuado para crear una librería segura, modular y portable.
 
 Con base en este marco conceptual, el Capítulo~\ref{cap:metodologia} presenta la metodología y el diseño experimental con los que se evaluó la hipótesis de investigación, y el Capítulo~\ref{cap:diseno} describe la solución construida: la arquitectura de la librería, sus módulos principales, el flujo de generación de entropía y la integración con criptografía ligera.
