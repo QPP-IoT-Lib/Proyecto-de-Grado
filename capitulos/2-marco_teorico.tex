@@ -102,7 +102,7 @@ $H(X)$ & Entropía de Shannon de $X$ (incertidumbre promedio) \\
 $H_\infty(X)$ & Min-entropía de $X$ (incertidumbre en el peor caso) \\
 $H_\infty(X \mid Y)$ & Min-entropía condicional promedio de $X$ dado $Y$ \\
 $\hat{H}_\infty$ & Estimación de min-entropía por muestra obtenida con \texttt{ea\_iid} o \texttt{ea\_non\_iid} de SP 800-90B \\
-$h$ & Valor de min-entropía \emph{acreditado} por muestra, fijado por debajo de $\hat{H}_\infty$ \\
+$h$ & Presupuesto operativo conservador de min-entropía por muestra, elegido a partir de $\hat{H}_\infty$; no constituye por sí solo una acreditación formal de la fuente \\
 $e = \log_2 N!$ & Entropía que el diseño de QPP-RNG \emph{contabiliza} por ciclo de convergencia \\
 \bottomrule
 \end{tabularx}
@@ -442,7 +442,7 @@ Integración & Tiempo de generación de claves y nonces & Evaluar utilidad prác
 
 \section{Síntesis del marco teórico}
 
-El marco teórico fija los conceptos que los capítulos siguientes usan de forma cuantitativa. Se adoptó una notación única para la entropía: $H$ para la entropía de Shannon, $H_\infty$ para la min-entropía, $H_\infty(\cdot \mid \cdot)$ para la min-entropía condicional, $\hat{H}_\infty$ para las estimaciones de SP 800-90B y $h$ para el valor acreditado, siempre con su unidad (por muestra, por ciclo o por byte). Se formalizaron el modelo de un DRBG, que no produce entropía y está acotado por la de su semilla, y la cota del acondicionamiento, según la cual la salida no puede contener más entropía que la entrada ni más bits que su longitud.
+El marco teórico fija los conceptos que los capítulos siguientes usan de forma cuantitativa. Se adoptó una notación única para la entropía: $H$ para la entropía de Shannon, $H_\infty$ para la min-entropía, $H_\infty(\cdot \mid \cdot)$ para la min-entropía condicional, $\hat{H}_\infty$ para las estimaciones obtenidas con los procedimientos de SP 800-90B y $h$ para el presupuesto operativo conservador de min-entropía por muestra, elegido a partir de dichas estimaciones y sin implicar una acreditación formal de la fuente. Se formalizaron el modelo de un DRBG, que no produce entropía y cuya seguridad depende de la entropía disponible en su semilla, y la cota del acondicionamiento, según la cual la salida no puede contener más entropía que la entrada ni más bits de entropía que su longitud.
 
 Se describieron también los fundamentos de AEAD y Ascon-AEAD128, cuya seguridad supone una clave uniforme y \textit{nonces} que no se repiten, y el espacio de permutaciones de QPP. Finalmente, se modeló el ciclo de QPP-RNG como un sistema con realimentación, del que se deriva que la entropía que el generador puede respaldar es la entropía fresca de la medición de tiempo condicionada al estado, y no el tamaño del espacio de permutaciones. Rust, por su parte, ofrece un entorno adecuado para crear una librería segura, modular y portable.
 
